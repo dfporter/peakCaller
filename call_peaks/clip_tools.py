@@ -30,6 +30,8 @@ def normalize(clipReadsFname, backgroundReadsFname):
     parseout = stp.search(str(stats.communicate()))
     if parseout:
         backgroundTotal = int(parseout.group(1)) + int(parseout.group(2))
+    print "clip reads:%f. rna seq reads:%f" % (float(clipTotal),
+                                               float(backgroundTotal))
     return float(clipTotal)/float(backgroundTotal)
     #clip peak/clip total cf background peak/background total
     #is the same as
@@ -228,7 +230,7 @@ def analyze_fasta(fasta_filename, resultsFolder, do_random=True,
             chrSizeTable[s[0]] = int(s[1])
     randomFa = open(resultsFolder +'/random.bed', 'w')
     print "Writing to %s" % resultsFolder +'/random.bed'
-    for r in range(1, 500):
+    for r in range(1, 1001):
         rlen = random.choice(seq_sizes)
         rchr = random.choice(obs_chrs)
         rstart = random.choice(range(1, chrSizeTable[rchr]))
@@ -447,7 +449,7 @@ def take_only_highest_peak(resultsFolder, bedfile):
 def define_ranges(resultsFolder,
                   regions_above_cutoff_filename,
                   clipReadsFname,
-                  backgroundReadsFname,
+                  #backgroundReadsFname,
                   normalCoef,
                   peaks_ranges_filename,
                   peakHeights, startTime, numPeaks):

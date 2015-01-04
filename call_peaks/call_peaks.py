@@ -24,7 +24,8 @@ def parse_args():
                         help=""".bam file of clip-seq.""")
     parser.add_argument('-b', '--background_reads', default=False,
                         help=""".bam file of background.""")
-    parser.add_argument('-a', '--annotation_bed', default='gff2clean.bed',
+    parser.add_argument('-a', '--annotation_bed',
+                        default='lib/cerevisiae_genes.bed',
                         help=""".bed file of gene locations.""")
     parser.add_argument('-g', '--gain', type=float, default=1.0, 
                         help="""Coefficient to inflate the background.
