@@ -47,4 +47,3 @@ def identify_regions(globstr, cutoff=10):
 """
 		os.system(bash_cmd)
 
-identify_regions("/home/dp/Desktop/bams/puf3_mcf*.bam")
