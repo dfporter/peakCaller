@@ -1,5 +1,6 @@
 # Perl utility
 include call_peaks/extractAllRegionsAboveCutoff.pl
+include call_peaks/calculate_ztnb_p_value.r
 
 # lib files
 include call_peaks/lib/ef4.fa
