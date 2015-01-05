@@ -15,7 +15,7 @@ import clip_tools
 import identify_regions
 
 
-def parse_args():
+def parse_args(src_dir):
     parser = argparse.ArgumentParser(description=
     """Call peaks in CLIP-seq data.""")
     parser.add_argument('-p', '--peaks', default="create",
@@ -25,7 +25,7 @@ def parse_args():
     parser.add_argument('-b', '--background_reads', default=False,
                         help=""".bam file of background.""")
     parser.add_argument('-a', '--annotation_bed',
-                        default='lib/cerevisiae_genes.bed',
+                        default="%s/lib/cerevisiae_genes.bed" % (src_dir),
                         help=""".bed file of gene locations.""")
     parser.add_argument('-g', '--gain', type=float, default=1.0, 
                         help="""Coefficient to inflate the background.
@@ -41,12 +41,13 @@ value with the ZTNB p value being merely a measure of relative enrichment.""")
     return args
 
 if __name__ == '__main__':
-    args = parse_args()
+    src_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
+    args = parse_args(src_dir)
     # Variable initilization.
     clip_bam_filename = args.clip_reads
     regions_above_cutoff_filename = args.peaks
     if regions_above_cutoff_filename == "create":
-        identify_regions.identify_regions(clip_bam_filename)
+        identify_regions.identify_regions(clip_bam_filename, src_dir)
         regions_above_cutoff_filename = "%s.regions" % clip_bam_filename
     control_bam_filename = args.background_reads
     normalization_coefficient = 1
@@ -66,8 +67,9 @@ if __name__ == '__main__':
             num_peaks += 1
     print "\n\nRegions above cutoff in .regions file: %i" % num_peaks
     # File io initialization.
-    peaksBasename = re.match(r'.+/(.+)\.regions',
-                             regions_above_cutoff_filename).group(1)
+    peaksBasename = re.match(
+        r'(.+)\.regions',
+        os.path.basename(regions_above_cutoff_filename)).group(1)
     peaksBasename = re.sub(r'.bam', '', peaksBasename)
     results_folder = args.output_folder + '/' + peaksBasename + '/'
     if(not os.path.exists(results_folder)):
@@ -103,7 +105,7 @@ if __name__ == '__main__':
 
     # Call R and reformat the results, which are put in a file r.out.
     # callR() returns a dict with key = peak number, value = pvalue.
-    clip_tools.call_R(results_folder, peak_stats)
+    clip_tools.call_R(results_folder, peak_stats, src_dir)
     clip_tools.add_p_value("%s/ranges_no_dups" % results_folder,
                            results_folder + 'ranges_with_stats',
                            peak_stats)

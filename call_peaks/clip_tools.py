@@ -114,7 +114,7 @@ def moments(a): #takes averaged peak as argument
     print "variance: %f standard_deviation: %f skew: %f mean: %f kurtosis: %f " % (variance, standardDev, skew, mean, kurtosis)
 
 
-def call_R(resultsFolder, peakStats):
+def call_R(resultsFolder, peakStats, src_path):
     # R cannot handle huge files, so we'll chunk the input file.
     initialFile = open(resultsFolder + 'peaksForR.txt', 'r')
     numLinesInitialFile = 0
@@ -142,8 +142,8 @@ def call_R(resultsFolder, peakStats):
         for li in binF:
             numLinesInSeparateFiles += 1
         binF.close()
-        cmdl = r"""R CMD BATCH '--args """ + binFilenames[i]
-        cmdl += """' calculate_ztnb_p_value.r"""
+        cmdl = r"""Rscript %s/calculate_ztnb_p_value.r %s""" % (
+            src_path, binFilenames[i])
         os.system(cmdl)
         rf = open('r.out', 'r')
         for li in rf:
