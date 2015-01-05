@@ -158,9 +158,10 @@ def call_R(resultsFolder, peakStats, src_path):
     return peakStats
 
 
-def create_fasta(bedfname, resultsFolder):
+def create_fasta(bedfname, resultsFolder,
+                 fasta_file='~/Desktop/ensemblEF4/ef4.fa'):
     """Ignores strand. Not usable."""
-    cmdl = r'fastaFromBed -fi ~/Desktop/ensemblEF4/ef4.fa '
+    cmdl = r"fastaFromBed -fi %s " % fasta_file
     cmdl = cmdl + "-bed %s/%s -fo %s/%s.fa" % (resultsFolder, bedfname, resultsFolder, bedfname)
     print cmdl
     os.system(cmdl)

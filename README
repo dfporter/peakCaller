@@ -1,3 +1,9 @@
 A CLIP-seq peak caller.
 
 Example: python call_peaks.py -c test_clip.bam
+
+python call_peaks.py -h for additional options.
+
+Output is placed in a directory named after the input CLIP bam file.
+
+I use without running setup.py.
