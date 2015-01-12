@@ -1,3 +1,0 @@
-A CLIP-seq peak caller.
-
-Example: python call_peaks.py -c clip.bam
