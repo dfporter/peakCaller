@@ -1,9 +1,12 @@
-A CLIP-seq peak caller.
+Yet another CLIP-seq peak caller.
+=========
 
-Example: python call_peaks.py -c test_clip.bam
+Works on .bam files as input.
 
-python call_peaks.py -h for additional options.
+Will do a local Poisson on the CLIP data.
 
-Output is placed in a directory named after the input CLIP bam file.
+If given a negative control, will model the negative control as a ZTNB.
 
-I use without running setup.py.
+Example: :: 
+
+	$ python call_peaks.py -c clip.bam
