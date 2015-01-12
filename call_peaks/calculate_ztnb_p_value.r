@@ -1,3 +1,4 @@
+
 library(MASS)
 
 vecOfFiles=character()
@@ -43,3 +44,5 @@ for (i in 1:length(vecOfFiles)) {
 }
 
 sink()
+
+warnings()
