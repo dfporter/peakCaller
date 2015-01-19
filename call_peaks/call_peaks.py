@@ -1,14 +1,8 @@
 import sys
 import os
-import pybedtools
-import HTSeq
-from scipy.stats import poisson
-import numpy as np
 import time
 import re
 import subprocess
-import math
-import random
 import argparse
 from peak import peak
 import clip_tools
