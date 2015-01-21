@@ -9,7 +9,8 @@ import clip_tools
 import identify_regions
 
 
-def parse_args(src_dir):
+def parse_args():
+    src_dir = os.path.dirname(os.path.realpath(__file__))
     parser = argparse.ArgumentParser(description=
     """Call peaks in CLIP-seq data.""")
     parser.add_argument('-p', '--peaks', default="create",
@@ -35,7 +36,7 @@ value with the ZTNB p value being merely a measure of relative enrichment.""")
     return args
 
 if __name__ == '__main__':
-    src_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
+    src_dir = os.path.dirname(os.path.realpath(__file__))
     args = parse_args(src_dir)
     # Variable initilization.
     clip_bam_filename = args.clip_reads
