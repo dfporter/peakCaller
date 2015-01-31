@@ -7,6 +7,7 @@ import argparse
 from peak import peak
 import clip_tools
 import identify_regions
+import pysam
 
 
 def parse_args():
@@ -37,7 +38,7 @@ value with the ZTNB p value being merely a measure of relative enrichment.""")
 
 if __name__ == '__main__':
     src_dir = os.path.dirname(os.path.realpath(__file__))
-    args = parse_args(src_dir)
+    args = parse_args()
     # Variable initilization.
     clip_bam_filename = args.clip_reads
     regions_above_cutoff_filename = args.peaks
@@ -45,16 +46,18 @@ if __name__ == '__main__':
         identify_regions.identify_regions(clip_bam_filename, src_dir)
         regions_above_cutoff_filename = "%s.regions" % clip_bam_filename
     control_bam_filename = args.background_reads
-    normalization_coefficient = 1
+    normalization_coefficient = 1.0
     peakHeights = dict()
     # Set the normalization coefficient by dividing total read number
     # of CLIP reads by total read number of RNA-seq. Uses only mapped reads.
+    skip = '''
     if(args.background_reads):
         normalization_coefficient = clip_tools.normalize(
             clip_bam_filename, control_bam_filename)
         normalization_coefficient = args.gain * normalization_coefficient
         sys.stderr.write("Normalization coefficient is %.4f (Gain: %.3f)\n" % (
             normalization_coefficient, float(args.gain)))
+        normalization_coefficient = 1.0'''
     # Count the number of peaks.
     num_peaks = 0
     with open(regions_above_cutoff_filename, 'r') as f:
@@ -80,7 +83,6 @@ if __name__ == '__main__':
     clip_tools.define_ranges(results_folder,
                              regions_above_cutoff_filename,
                              clip_bam_filename,
-                             #control_bam_filename,
                              normalization_coefficient,
                              peaks_ranges_filename,
                              peakHeights, startTime, num_peaks)
@@ -88,20 +90,25 @@ if __name__ == '__main__':
     clip_tools.remove_duplicate_ranges(
         results_folder + 'init_ranges',
         results_folder + '/ranges_no_dups')
+    clip_tools.assign_to_gene(
+        results_folder + '/ranges_no_dups',
+        results_folder + '/ranges_with_ann')
+    
     #'''
     peak_stats = dict()
     print "Processing ranges in %s..." % peaks_ranges_filename
     clip_tools.process_ranges(results_folder,
-                              "%s/ranges_no_dups" % results_folder,
+                              "%s/ranges_with_ann" % results_folder,
                               clip_bam_filename,
                               control_bam_filename,
                               normalization_coefficient,
                               peak_stats)
-
+    #sys.exit()
+    print "Finished processing ranges. Calling R..."
     # Call R and reformat the results, which are put in a file r.out.
     # callR() returns a dict with key = peak number, value = pvalue.
     clip_tools.call_R(results_folder, peak_stats, src_dir)
-    clip_tools.add_p_value("%s/ranges_no_dups" % results_folder,
+    clip_tools.add_p_value("%s/ranges_with_ann.cor_height" % results_folder,
                            results_folder + 'ranges_with_stats',
                            peak_stats)
     os.system("mv %s/ranges_with_stats %s/ranges" % (results_folder,
