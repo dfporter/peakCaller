@@ -6,6 +6,7 @@ class gtf_data:
     def __init__(self, gtf_filename='lib/Saccharomyces_cerevisiae.EF4.70.gtf'):
         self.has_introns = set()
         self.intron_list = {}
+        self.txpt_ranges = {}
         self.read_file(gtf_filename)
         
     def read_file(self, gtf_filename):
@@ -36,4 +37,8 @@ class gtf_data:
                         an_intron = [last_end, exon['start']]
                         self.intron_list[txpt].append(an_intron)
                     last_end = exon['end']
-
+            first_exon_start = min(
+                [x['start'] for x in self.exons_by_txpt[txpt]])
+            last_exon_end = max(
+                [x['end'] for x in self.exons_by_txpt[txpt]])
+            self.txpt_ranges[txpt] = [first_exon_start, last_exon_end]

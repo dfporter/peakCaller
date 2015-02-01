@@ -453,39 +453,6 @@ def read_annotations_take_highest_peak_per_gene(annotation_filename):
         #print "adding gene %s at the end" % gene
     return peaks_by_range
 
-old = r'''
-def take_only_highest_peak(resultsFolder, bedfile):
-    peaks_fname = "%s/%s.pvalue.sort" % (resultsFolder, bedfile)
-    outfname = "%s/%s.pvalue.highest" % (resultsFolder, bedfile)
-    pfile = open(peaks_fname, 'r')
-    peaks_by_id = dict()
-    pat1 = r'ID=(\w+):([\w\-\(\)\d]+):'
-    pat2 = r'ID=([\w\-\(\)\d]+);'
-    for li in pfile:
-        s = li.rstrip("\n").split("\t")
-        if(len(s) > 9):
-            m = re.search(pat1, li)
-            if(m is not None):
-                if(m.group(2) in peaks_by_id):
-                    if(float(peaks_by_id[m.group(2)][4]) >= float(s[4])):
-                        continue
-                peaks_by_id[m.group(2)] = s[0:6] + [s[12]] + [m.group(2)]
-                continue
-            m = re.search(pat2, li)
-            if(m is not None):
-                if(m.group(1) in peaks_by_id):
-                    if(float(peaks_by_id[m.group(1)][4]) >= float(s[4])):
-                        continue
-                peaks_by_id[m.group(1)] = s[0:6] + [s[12]] + [m.group(1)]
-                continue
-            print "%s did not match regex..." % li
-    pfile.close()
-    outf = open(outfname, 'w')
-    for geneid in peaks_by_id:
-        li = "\t".join(peaks_by_id[geneid]) + "\n"
-        outf.write(li)
-    outf.close()
-'''
 
 def define_ranges(resultsFolder,
                   regions_above_cutoff_filename,
@@ -558,7 +525,7 @@ def process_ranges(resultsFolder,
     f = open(peaks_ranges_filename, 'r')
     f_corrected_height = open(peaks_ranges_filename + '.cor_height', 'w')
     inputToR = open(resultsFolder + 'peaksForR.txt', 'w')
-    gene_ranges = read_gff(annotation_file)
+    #gene_ranges = read_gff(annotation_file)
     gtf_info = gtf_data(gtf_filename)
     binned_genes = {}
     use_local_for_these_genes = ['RDN18-1', 'RDN37-1', 'RDN58-1',
@@ -580,12 +547,12 @@ def process_ranges(resultsFolder,
         p.add_reads_and_adjust_range(clipReadsFname)
         peakHeights[p.name] = s[4]
         p.put_clip_reads_in_bins()
-        if a_gene in gene_ranges:
+        if a_gene in gtf_info.txpt_ranges:
             if a_gene in binned_genes:
                 p.calculate_poisson(a_binned_gene=binned_genes[a_gene])
             else:
-                gene_iv = [s[1], int(gene_ranges[a_gene][0]),
-                           int(gene_ranges[a_gene][1]), s[6]]
+                gene_iv = [s[1], int(gtf_info.txpt_ranges[a_gene][0]),
+                           int(gtf_info.txpt_ranges[a_gene][1]), s[6]]
                 binned_genes[a_gene] = gene(name=s[-1], gene_iv=gene_iv, gtf_info=gtf_info)
                 binned_genes[a_gene].add_clip_reads_in_gene_and_bin(clipReadsFname)
                 if backgroundReadsFname and a_gene not in use_local_for_these_genes:
@@ -597,7 +564,7 @@ def process_ranges(resultsFolder,
             print p.calculate_poisson()
         peakStats[p.name] = {'Poisson': p.pvalue}
         if(backgroundReadsFname):
-            if a_gene in gene_ranges and a_gene not in use_local_for_these_genes:
+            if a_gene in gtf_info.txpt_ranges and a_gene not in use_local_for_these_genes:
                 lineO = p.write_background_bins(normalCoef=normalCoef,
                                                     a_binned_gene=binned_genes[a_gene])
                 if(lineO):

@@ -6,6 +6,7 @@ from scipy.stats import poisson
 import pysam
 import re
 import subprocess
+import gtf_data
 
 class gene:
     
@@ -18,6 +19,7 @@ class gene:
         self.bin_upper_bound = self.iv[2] + 50
         if(self.bin_lower_bound < 1):
             self.bin_lower_bound = 1
+        self.gtf_info = gtf_info
         self.find_bins_in_introns()
 
     def add_clip_reads_in_gene_and_bin(self, clipReadsFname):
@@ -39,18 +41,32 @@ class gene:
             bedgraph_obj[iv] += value
 
     def add_bins_to_bedgraph(self, bedgraph_obj, which_set="clip"):
+        adjust_index_for_introns = 0
         for index, pos in enumerate(range(self.bin_lower_bound,
                        self.bin_upper_bound,
                        self.bin_size)):
+            if pos in self.bins_in_introns:
+                adjust_index_for_introns += 1
+                continue
             iv = HTSeq.GenomicInterval(
                 self.iv[0], pos, pos+self.bin_size, self.iv[3])
             if which_set == "clip":
-                bedgraph_obj[iv] += self.bins[index]
+                try:
+                    bedgraph_obj[iv] += self.bins[index-adjust_index_for_introns]
+                except:
+                    print "Error in gene.add_bins_to_bedgraph:"
+                    print "index %i not in self.bins %s" % (index-adjust_index_for_introns, str(self.bins))
+                    print "bins in introns %s" % str(self.bins_in_introns)
             if which_set == "background":
                 if not hasattr(self, 'background_bins'):
                     print "Error: no background_bins in %s gene." % self.name
                     return False
-                bedgraph_obj[iv] += self.background_bins[index]
+                try:
+                    bedgraph_obj[iv] += self.background_bins[index-adjust_index_for_introns]
+                except:
+                    print "Error in gene.add_bins_to_bedgraph:"
+                    print "index %i not in self.bins %s" % (index-adjust_index_for_introns, str(self.background_bins))
+                    print "bins in introns %s" % str(self.bins_in_introns) 
 
     def add_clip_reads_in_gene(self, clipReadsFname):
         """Adds all reads in the genomic interval and binds.
@@ -71,13 +87,17 @@ class gene:
         bamfile.close()
         
     def find_bins_in_introns(self):
-        if (not gtf_info) or (self.name not in gtf_info.has_introns):
+        if not self.gtf_info:
             self.bins_in_introns = []
             return True
+        if self.name not in self.gtf_info.has_introns:
+            self.bins_in_introns = []
+            return True
+        self.bins_in_introns = []
         for i in range(self.bin_lower_bound,
                        self.bin_upper_bound,
                        self.bin_size):
-            for intron in gtf_info.intron_list[self.name]:
+            for intron in self.gtf_info.intron_list[self.name]:
                 if (intron[0] <= i <= intron[1]) and (
                     intron[0] <= i+self.bin_size <= intron[1]):
                     self.bins_in_introns.append(i)

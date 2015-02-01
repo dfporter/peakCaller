@@ -1,21 +1,11 @@
 """
 The genome needs a few library files in lib/:
 1. A .bed file of the start/end locations for each gene.
-2. A file listing the ranges of each exon.
+2. A .gtf for the whole genome.
 
-Making the total exon length table:
-# From https://www.biostars.org/p/83901/
-library(GenomicFeatures)
-txdb <- makeTranscriptDbFromGFF("ensemblEF4/Saccharomyces_cerevisiae.EF4.70.gtf", format="gtf")
-exons.list.per.gene <- exonsBy(txdb,by="gene")
-# then for each gene, reduce all the exons to a set of non overlapping exons, calculate their lengths (widths) and sum then
-exonic.gene.sizes <- lapply(exons.list.per.gene,function(x){sum(width(reduce(x)))})
-# End portion from above source.
+TODO: Have the program make the required .bed file from the .gtf
+if it doesn't exist already.
 
-# Write to table.
-sink("exon_lengths")
-for (i in seq_along(exonic.gene.sizes)){ cat(paste(names(exonic.gene.sizes)[i], "\t", exonic.gene.sizes[i], "\n")) }
-sink()
 """
 import sys
 import os
@@ -42,6 +32,9 @@ def parse_args():
     parser.add_argument('-a', '--annotation_bed',
                         default="%s/lib/cerevisiae_genes.bed" % (src_dir),
                         help=""".bed file of gene locations.""")
+    parser.add_argument('-t', '--gtf',
+        default="%s/lib/Saccharomyces_cerevisiae.EF4.70.gtf" % src_dir,
+        help="gtf file for the given genome build.")
     parser.add_argument('-g', '--gain', type=float, default=1.0, 
                         help="""Coefficient to inflate the background.
 Normalizing a CLIP-seq dataset to a much larger (~20-fold) RNA-seq dataset
@@ -119,7 +112,9 @@ if __name__ == '__main__':
                               clip_bam_filename,
                               control_bam_filename,
                               normalization_coefficient,
-                              peak_stats)
+                              peak_stats,
+                              gtf_filename=args.gtf,
+                              annotation_file=args.annotation_bed)
     #sys.exit()
     print "Finished processing ranges. Calling R..."
     # Call R and reformat the results, which are put in a file r.out.
