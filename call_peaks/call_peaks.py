@@ -1,3 +1,22 @@
+"""
+The genome needs a few library files in lib/:
+1. A .bed file of the start/end locations for each gene.
+2. A file listing the ranges of each exon.
+
+Making the total exon length table:
+# From https://www.biostars.org/p/83901/
+library(GenomicFeatures)
+txdb <- makeTranscriptDbFromGFF("ensemblEF4/Saccharomyces_cerevisiae.EF4.70.gtf", format="gtf")
+exons.list.per.gene <- exonsBy(txdb,by="gene")
+# then for each gene, reduce all the exons to a set of non overlapping exons, calculate their lengths (widths) and sum then
+exonic.gene.sizes <- lapply(exons.list.per.gene,function(x){sum(width(reduce(x)))})
+# End portion from above source.
+
+# Write to table.
+sink("exon_lengths")
+for (i in seq_along(exonic.gene.sizes)){ cat(paste(names(exonic.gene.sizes)[i], "\t", exonic.gene.sizes[i], "\n")) }
+sink()
+"""
 import sys
 import os
 import time

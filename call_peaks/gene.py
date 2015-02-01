@@ -9,7 +9,8 @@ import subprocess
 
 class gene:
     
-    def __init__(self, name='Unkown_gene', gene_iv=['I', 1, 20, "+"]):
+    def __init__(self, name='Unkown_gene', gene_iv=['I', 1, 20, "+"],
+                 gtf_info=False):
         self.name = name
         self.iv = gene_iv
         self.bin_size = 50
@@ -17,6 +18,7 @@ class gene:
         self.bin_upper_bound = self.iv[2] + 50
         if(self.bin_lower_bound < 1):
             self.bin_lower_bound = 1
+        self.find_bins_in_introns()
 
     def add_clip_reads_in_gene_and_bin(self, clipReadsFname):
         self.add_clip_reads_in_gene(clipReadsFname)
@@ -45,6 +47,9 @@ class gene:
             if which_set == "clip":
                 bedgraph_obj[iv] += self.bins[index]
             if which_set == "background":
+                if not hasattr(self, 'background_bins'):
+                    print "Error: no background_bins in %s gene." % self.name
+                    return False
                 bedgraph_obj[iv] += self.background_bins[index]
 
     def add_clip_reads_in_gene(self, clipReadsFname):
@@ -65,11 +70,25 @@ class gene:
                self.ga_read_starts[r_pos] += 1
         bamfile.close()
         
+    def find_bins_in_introns(self):
+        if (not gtf_info) or (self.name not in gtf_info.has_introns):
+            self.bins_in_introns = []
+            return True
+        for i in range(self.bin_lower_bound,
+                       self.bin_upper_bound,
+                       self.bin_size):
+            for intron in gtf_info.intron_list[self.name]:
+                if (intron[0] <= i <= intron[1]) and (
+                    intron[0] <= i+self.bin_size <= intron[1]):
+                    self.bins_in_introns.append(i)
+                    
     def put_clip_reads_in_bins(self):
         self.bins = list()
         for i in range(self.bin_lower_bound,
                        self.bin_upper_bound,
                        self.bin_size):
+            if i in self.bins_in_introns:
+                continue
             self.bins.append(
                 self.total_reads_in_bin(
                     self.ga_read_starts,
@@ -96,12 +115,15 @@ class gene:
                      self.iv[0], r.reference_end-1, self.iv[3])
                self.ga_background_read_starts[r_pos] += 1
         bamfile.close()
+        self.put_background_reads_in_bins()
         
     def put_background_reads_in_bins(self):
         self.background_bins = list()
         for i in range(self.bin_lower_bound,
                        self.bin_upper_bound,
                        self.bin_size):
+            if i in self.bins_in_introns:
+                continue
             self.background_bins.append(
                 self.total_reads_in_bin(
                     self.ga_background_read_starts,

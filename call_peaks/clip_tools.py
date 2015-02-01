@@ -14,6 +14,7 @@ import random
 import argparse
 from peak import peak
 from gene import gene
+from gtf_data import gtf_data
 
 def normalize(clipReadsFname, backgroundReadsFname):
     # Get total read number from CLIP-seq .bam
@@ -546,6 +547,7 @@ def process_ranges(resultsFolder,
                    backgroundReadsFname,
                    normalCoef,
                    peakStats,
+                   gtf_filename='lib/Saccharomyces_cerevisiae.EF4.70.gtf',
                    annotation_file='gff2clean.bed'):
     """Find the true heights and statistics for an init_ranges file.
     The input file (init_ranges) contains peak numbers, locations,
@@ -557,6 +559,7 @@ def process_ranges(resultsFolder,
     f_corrected_height = open(peaks_ranges_filename + '.cor_height', 'w')
     inputToR = open(resultsFolder + 'peaksForR.txt', 'w')
     gene_ranges = read_gff(annotation_file)
+    gtf_info = gtf_data(gtf_filename)
     binned_genes = {}
     use_local_for_these_genes = ['RDN18-1', 'RDN37-1', 'RDN58-1',
                                  'RDN18-2', 'RDN37-2', 'RDN58-2',
@@ -572,7 +575,8 @@ def process_ranges(resultsFolder,
         iv = [s[1], int(s[2]), int(s[3]), s[6]]
         pos_of_peak = int(s[7])
         a_gene = s[-1]
-        p = peak(str(s[0]), iv, height=int(s[5]), pos_of_peak=pos_of_peak, gene_name=s[-1])
+        p = peak(str(s[0]), iv, height=int(s[5]), pos_of_peak=pos_of_peak,
+                 gene_name=s[-1],gtf_info=False)
         p.add_reads_and_adjust_range(clipReadsFname)
         peakHeights[p.name] = s[4]
         p.put_clip_reads_in_bins()
@@ -582,7 +586,7 @@ def process_ranges(resultsFolder,
             else:
                 gene_iv = [s[1], int(gene_ranges[a_gene][0]),
                            int(gene_ranges[a_gene][1]), s[6]]
-                binned_genes[a_gene] = gene(name=s[-1], gene_iv=gene_iv)
+                binned_genes[a_gene] = gene(name=s[-1], gene_iv=gene_iv, gtf_info=gtf_info)
                 binned_genes[a_gene].add_clip_reads_in_gene_and_bin(clipReadsFname)
                 if backgroundReadsFname and a_gene not in use_local_for_these_genes:
                     binned_genes[a_gene].add_background_reads_in_gene_and_bin(
@@ -600,7 +604,7 @@ def process_ranges(resultsFolder,
                     inputToR.write(lineO)
             else:
                 # Add reads near the peak in RNA-seq data
-                p.addBackgroundReads()
+                p.addBackgroundReads(backgroundReadsFname)
                 # Write bins of background data so that R can be called
                 # to do a statistical test
                 lineO = p.write_background_bins(normalCoef=normalCoef) 

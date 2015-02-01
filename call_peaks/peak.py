@@ -14,7 +14,8 @@ class peak:
     Contains methods to add reads from a bam file of CLIP reads
     and from a bam file of control reads.
     """
-    def __init__(self, name, iv, height=0, pos_of_peak=0, gene_name='NA'):
+    def __init__(self, name, iv, height=0, pos_of_peak=0, gene_name='NA',
+                 gtf_info=False):
         self.name = name
         self.iv = iv
         self.height = height
@@ -297,7 +298,6 @@ reload(peak)
             value_in_bin = self.total_reads_in_bin(
                 self.ga_background_read_starts, self.iv[0], i, i+self.bin_size, self.iv[3])
             if value_in_bin > 0:
-                print "Adding value %f" % float(value_in_bin)
                 background_bin.append(float(value_in_bin))
         background_bin.sort(reverse=True)
         if(len(background_bin) < 1):
