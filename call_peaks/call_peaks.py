@@ -50,14 +50,12 @@ if __name__ == '__main__':
     peakHeights = dict()
     # Set the normalization coefficient by dividing total read number
     # of CLIP reads by total read number of RNA-seq. Uses only mapped reads.
-    skip = '''
     if(args.background_reads):
         normalization_coefficient = clip_tools.normalize(
             clip_bam_filename, control_bam_filename)
         normalization_coefficient = args.gain * normalization_coefficient
         sys.stderr.write("Normalization coefficient is %.4f (Gain: %.3f)\n" % (
             normalization_coefficient, float(args.gain)))
-        normalization_coefficient = 1.0'''
     # Count the number of peaks.
     num_peaks = 0
     with open(regions_above_cutoff_filename, 'r') as f:

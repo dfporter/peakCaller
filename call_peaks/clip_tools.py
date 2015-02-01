@@ -279,11 +279,6 @@ def retrieve_p_values(resultsFolder, bedfile, range_to_ann_line):
                 known_s[6] = str(min(float(known_s[6]), float(s[6])))  # Set poisson
                 known_s[7] = str(min(float(known_s[7]), float(s[7])))  # Set ztnb
                 range_to_ann_line[merged_peak_range]['line'] = "\t".join(known_s) + "\n"
-            #peakStats[s[3]]= {'Poisson': float(s[6]),
-            #                  'ZTNB': float(s[7])}
-            #range_to_ranges_line[a_range] = {'Poisson': float(s[6]),
-            #                          'ZTNB': float(s[7]),
-            #                           'line': li.rstrip('\n')}
     return range_to_ann_line
 
 
@@ -366,10 +361,15 @@ def assign_to_gene(in_file, out_file, annotation_file='gff2clean.bed'):
     pat1 = r'ID=(\w+):([\w\-\(\)\d]+):'
     pat2 = r'ID=([\w\-\(\)\d]+);'
     out_lines = []
+    known_ranges = set()
     with open(out_file + '_raw', 'r') as f:
         for li in f:
             s = li.rstrip("\n").split("\t")
             if(len(s) > 9):
+                iv = (s[0], s[1], s[2], s[3], s[4], s[5])
+                if iv in known_ranges:
+                    continue  # Don't count the same range twice.
+                known_ranges.add(iv)
                 m = re.search(pat1, li)
                 if(m is not None):
                     out_lines.append("%s\t%s\n" % (
@@ -441,7 +441,6 @@ def read_annotations_take_highest_peak_per_gene(annotation_filename):
                 if(float(peaks_by_id[gene_name][4]) >= float(s[4])):
                         continue
             peaks_by_id[gene_name] = s[0:6] + [gene_name]
-    print peaks_by_id
     pfile.close()
     peaks_by_range = dict()
     for a_gene in peaks_by_id:
@@ -451,7 +450,6 @@ def read_annotations_take_highest_peak_per_gene(annotation_filename):
         line += "\t".join(str(x) for x in [1.0, 1.0]) + "\n"
         peaks_by_range[a_range] = {'gene': a_gene, 'line': line}
         #print "adding gene %s at the end" % gene
-    print peaks_by_range
     return peaks_by_range
 
 old = r'''
@@ -514,7 +512,11 @@ def define_ranges(resultsFolder,
     for line in f:
         numProcessed += 1
         s = line.rstrip("\n").split('\t')
-        iv = [s[0], int(s[1]), int(s[2]), s[5]]
+        try:
+            iv = [s[0], int(s[1]), int(s[2]), s[5]]
+        except:
+            print "Formatting error on line %s in file %s. length=%i" % (
+                line, regions_above_cutoff_filename, len(s))
         # .bed files are CHR start   stop    name    score   strand,
         # so iv is [chr,start,stop,strand]
         p = peak(str(numProcessed), iv)
@@ -559,7 +561,12 @@ def process_ranges(resultsFolder,
     use_local_for_these_genes = ['RDN18-1', 'RDN37-1', 'RDN58-1',
                                  'RDN18-2', 'RDN37-2', 'RDN58-2',
                                  'YLR154W-A', 'YLR154W-B', 'YLR154W-C']
-                                 
+    read_ends_clip_peak = HTSeq.GenomicArray(chroms="auto", stranded=True)
+    read_ends_clip_gene = HTSeq.GenomicArray(chroms="auto", stranded=True)
+    bins_clip_gene = HTSeq.GenomicArray(chroms="auto", stranded=True)
+    bins_background_gene = HTSeq.GenomicArray(chroms="auto", stranded=True)
+    read_ends_background_peak = HTSeq.GenomicArray(chroms="auto", stranded=True)
+    read_ends_background_gene = HTSeq.GenomicArray(chroms="auto", stranded=True)
     for line in f:
         s = line.rstrip("\n").split('\t')
         iv = [s[1], int(s[2]), int(s[3]), s[6]]
@@ -568,10 +575,10 @@ def process_ranges(resultsFolder,
         p = peak(str(s[0]), iv, height=int(s[5]), pos_of_peak=pos_of_peak, gene_name=s[-1])
         p.add_reads_and_adjust_range(clipReadsFname)
         peakHeights[p.name] = s[4]
-        p.set_clip_bins()
+        p.put_clip_reads_in_bins()
         if a_gene in gene_ranges:
             if a_gene in binned_genes:
-                print p.calculate_poisson(a_binned_gene=binned_genes[a_gene])
+                p.calculate_poisson(a_binned_gene=binned_genes[a_gene])
             else:
                 gene_iv = [s[1], int(gene_ranges[a_gene][0]),
                            int(gene_ranges[a_gene][1]), s[6]]
@@ -580,31 +587,52 @@ def process_ranges(resultsFolder,
                 if backgroundReadsFname and a_gene not in use_local_for_these_genes:
                     binned_genes[a_gene].add_background_reads_in_gene_and_bin(
                         backgroundReadsFname)
-                print p.calculate_poisson(a_binned_gene=binned_genes[a_gene])
+                p.calculate_poisson(a_binned_gene=binned_genes[a_gene])
         else:
             print "Unknown gene %s..." % a_gene
             print p.calculate_poisson()
         peakStats[p.name] = {'Poisson': p.pvalue}
         if(backgroundReadsFname):
             if a_gene in gene_ranges and a_gene not in use_local_for_these_genes:
-                lineO = p.write_background_bins(backgroundReadsFname,
+                lineO = p.write_background_bins(normalCoef=normalCoef,
                                                     a_binned_gene=binned_genes[a_gene])
                 if(lineO):
                     inputToR.write(lineO)
             else:
                 # Add reads near the peak in RNA-seq data
-                p.addBackgroundReads(backgroundReadsFname)
+                p.addBackgroundReads()
                 # Write bins of background data so that R can be called
                 # to do a statistical test
-                lineO = p.write_background_bins(normalCoef) 
+                lineO = p.write_background_bins(normalCoef=normalCoef) 
                 if(lineO):
                     inputToR.write(lineO)
         else:
-            lineO = p.write_background_bins(1.0, output_zeros=True)
+            lineO = p.write_background_bins(normalCoef=normalCoef, output_zeros=True)
             if(lineO):
                 inputToR.write(lineO)
+        p.add_reads_to_bedgraph(read_ends_clip_peak)
+        p.add_background_reads_to_bedgraph(read_ends_background_peak)
         f_corrected_height.write(
             "%s\t%s\n" % (p.name, p.write_range()))
+    for a_gene in binned_genes:
+        binned_genes[a_gene].add_reads_to_bedgraph(read_ends_clip_gene)
+        binned_genes[a_gene].add_background_reads_to_bedgraph(read_ends_background_gene)
+        binned_genes[a_gene].add_bins_to_bedgraph(bins_clip_gene, which_set="clip")
+        binned_genes[a_gene].add_bins_to_bedgraph(
+            bins_background_gene, which_set="background")
+    outdir = os.path.dirname(os.path.realpath(peaks_ranges_filename))
+    bins_clip_gene.write_bedgraph_file(outdir + '/bins_clip_gene_plus.wig', strand="+")
+    bins_clip_gene.write_bedgraph_file(outdir + '/bins_clip_gene_minus.wig', strand="-")
+    bins_background_gene.write_bedgraph_file(outdir+ '/bins_background_gene_plus.wig', strand="+")
+    bins_background_gene.write_bedgraph_file(outdir+ '/bins_background_gene_minus.wig', strand="-") 
+    read_ends_clip_peak.write_bedgraph_file(outdir+ '/read_ends_clip_peak_plus.wig', strand="+")
+    read_ends_clip_gene.write_bedgraph_file(outdir+ '/read_ends_clip_gene_plus.wig', strand="+")
+    read_ends_background_peak.write_bedgraph_file(outdir+ '/read_ends_background_peak_plus.wig', strand="+")
+    read_ends_background_gene.write_bedgraph_file(outdir+ '/read_ends_background_gene_plus.wig', strand="+")
+    read_ends_clip_peak.write_bedgraph_file(outdir+ '/read_ends_clip_peak_minus.wig', strand="-")
+    read_ends_clip_gene.write_bedgraph_file(outdir+ '/read_ends_clip_gene_minus.wig', strand="-")
+    read_ends_background_peak.write_bedgraph_file(outdir+ '/read_ends_background_peak_minus.wig', strand="-")
+    read_ends_background_gene.write_bedgraph_file(outdir+ '/read_ends_background_gene_minus.wig', strand="-")
     f_corrected_height.close()
     inputToR.close()
 

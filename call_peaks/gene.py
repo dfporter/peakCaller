@@ -9,7 +9,7 @@ import subprocess
 
 class gene:
     
-    def __init__(self, name='Unkown', gene_iv=['I', 1, 2, "+"]):
+    def __init__(self, name='Unkown_gene', gene_iv=['I', 1, 20, "+"]):
         self.name = name
         self.iv = gene_iv
         self.bin_size = 50
@@ -25,7 +25,28 @@ class gene:
     def add_background_reads_in_gene_and_bin(self, backgroundReadsFname):
         self.add_background_reads_in_gene(backgroundReadsFname)
         self.put_background_reads_in_bins()
-        
+
+    def add_reads_to_bedgraph(self, bedgraph_obj):
+        for iv, value in self.ga_read_starts.steps():
+            bedgraph_obj[iv] += value
+
+    def add_background_reads_to_bedgraph(self, bedgraph_obj):
+        if not hasattr(self, 'ga_background_read_starts'):
+            return False
+        for iv, value in self.ga_background_read_starts.steps():
+            bedgraph_obj[iv] += value
+
+    def add_bins_to_bedgraph(self, bedgraph_obj, which_set="clip"):
+        for index, pos in enumerate(range(self.bin_lower_bound,
+                       self.bin_upper_bound,
+                       self.bin_size)):
+            iv = HTSeq.GenomicInterval(
+                self.iv[0], pos, pos+self.bin_size, self.iv[3])
+            if which_set == "clip":
+                bedgraph_obj[iv] += self.bins[index]
+            if which_set == "background":
+                bedgraph_obj[iv] += self.background_bins[index]
+
     def add_clip_reads_in_gene(self, clipReadsFname):
         """Adds all reads in the genomic interval and binds.
         """
@@ -34,11 +55,14 @@ class gene:
         self.reads = list()
         self.ga_read_starts = HTSeq.GenomicArray([self.iv[0]], stranded=True)
         for r in s:
-            if((self.iv[3]=="+" and not r.is_reverse) or (
-                self.iv[3]=="-" and r.is_reverse)):
+            if(self.iv[3]=="+" and not r.is_reverse):
                 r_pos = HTSeq.GenomicPosition(
                      self.iv[0], r.reference_start, self.iv[3])
                 self.ga_read_starts[r_pos] += 1
+            if(self.iv[3]=="-" and r.is_reverse):
+               r_pos = HTSeq.GenomicPosition(
+                     self.iv[0], r.reference_end-1, self.iv[3])
+               self.ga_read_starts[r_pos] += 1
         bamfile.close()
         
     def put_clip_reads_in_bins(self):
@@ -46,11 +70,11 @@ class gene:
         for i in range(self.bin_lower_bound,
                        self.bin_upper_bound,
                        self.bin_size):
-            highV = self.max_value_in_range_read_ends(
-                self.ga_read_starts,
-                self.iv[0], i, i+self.bin_size, self.iv[3])
-            if(highV >= 0):
-                self.bins.append(float(highV))
+            self.bins.append(
+                self.total_reads_in_bin(
+                    self.ga_read_starts,
+                    self.iv[0], i, i+self.bin_size, self.iv[3])
+            )
         if(len(self.bins) < 1):
             self.bins = [0]
 
@@ -63,11 +87,14 @@ class gene:
         self.reads = list()
         self.ga_background_read_starts = HTSeq.GenomicArray([self.iv[0]], stranded=True)
         for r in s:
-            if((self.iv[3]=="+" and not r.is_reverse) or (
-                self.iv[3]=="-" and r.is_reverse)):
+            if(self.iv[3]=="+" and not r.is_reverse):
                 r_pos = HTSeq.GenomicPosition(
                      self.iv[0], r.reference_start, self.iv[3])
                 self.ga_background_read_starts[r_pos] += 1
+            if (self.iv[3]=="-" and r.is_reverse):
+               r_pos = HTSeq.GenomicPosition(
+                     self.iv[0], r.reference_end-1, self.iv[3])
+               self.ga_background_read_starts[r_pos] += 1
         bamfile.close()
         
     def put_background_reads_in_bins(self):
@@ -75,11 +102,11 @@ class gene:
         for i in range(self.bin_lower_bound,
                        self.bin_upper_bound,
                        self.bin_size):
-            highV = self.max_value_in_range_read_ends(
-                self.ga_background_read_starts,
-                self.iv[0], i, i+self.bin_size, self.iv[3])
-            if(highV >= 0):
-                self.background_bins.append(float(highV))
+            self.background_bins.append(
+                self.total_reads_in_bin(
+                    self.ga_background_read_starts,
+                    self.iv[0], i, i+self.bin_size, self.iv[3])
+                )
         if(len(self.background_bins) < 1):
             self.background_bins = [0]
             
@@ -92,3 +119,11 @@ class gene:
             if (int(j[1]) > highV):
                 highV = int(j[1])
         return highV
+    
+    def total_reads_in_bin(self, ga_obj, chrm, start, end, strand):
+        # Calculate the maximimum value in the bin.
+        total_reads = 0
+        for iv, value in list(ga_obj[HTSeq.GenomicInterval(
+            chrm, start, end, strand)].steps()):
+            total_reads += (iv.end - iv.start) * (value)
+        return total_reads
