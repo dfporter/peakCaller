@@ -317,7 +317,7 @@ def merge_peaks(bedfile, resultsFolder):
 
     
 def ranges_with_stats_to_peaks(bedfile, resultsFolder,
-                               annotation_file='gff2clean.bed', use_merged=False):
+                               annotation_file='', use_merged=False):
     if(use_merged):
         cmdl = "closestBed -s -a %s/%s.merged.bed -b %s > %s/%s.ann" % (
             resultsFolder, bedfile, annotation_file, resultsFolder, bedfile)
@@ -339,7 +339,7 @@ def ranges_with_stats_to_peaks(bedfile, resultsFolder,
         return True
 
     
-def assign_to_gene(in_file, out_file, annotation_file='gff2clean.bed'):
+def assign_to_gene(in_file, out_file, annotation_file=''):
     bed_format_filename = os.path.dirname(os.path.realpath(in_file)) + '/ranges_no_dups.bed'
     print bed_format_filename
     bed_format = open(bed_format_filename, 'w')
@@ -515,7 +515,7 @@ def process_ranges(resultsFolder,
                    normalCoef,
                    peakStats,
                    gtf_filename='lib/Saccharomyces_cerevisiae.EF4.70.gtf',
-                   annotation_file='gff2clean.bed'):
+                   annotation_file=''):
     """Find the true heights and statistics for an init_ranges file.
     The input file (init_ranges) contains peak numbers, locations,
     and, in the last two columns: height and position of max height.

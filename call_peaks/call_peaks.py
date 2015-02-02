@@ -1,10 +1,8 @@
 """
-The genome needs a few library files in lib/:
-1. A .bed file of the start/end locations for each gene.
-2. A .gtf for the whole genome.
+This script needs a .gtf for the whole genome (given with -t).
+It will create a .bed file of annotations from the .gtf. The
+.bed file can also be given with -a, if it already exists.
 
-TODO: Have the program make the required .bed file from the .gtf
-if it doesn't exist already.
 
 """
 import sys
@@ -17,7 +15,7 @@ from peak import peak
 import clip_tools
 import identify_regions
 import pysam
-
+import annotation_bed_from_gtf
 
 def parse_args():
     src_dir = os.path.dirname(os.path.realpath(__file__))
@@ -26,15 +24,14 @@ def parse_args():
     parser.add_argument('-p', '--peaks', default="create",
                         help="""File of regions of interest.""")
     parser.add_argument('-c', '--clip_reads',
-                        help=""".bam file of clip-seq.""")
+                        help="""(Required) .bam file of clip-seq.""")
     parser.add_argument('-b', '--background_reads', default=False,
                         help=""".bam file of background.""")
     parser.add_argument('-a', '--annotation_bed',
-                        default="%s/lib/cerevisiae_genes.bed" % (src_dir),
                         help=""".bed file of gene locations.""")
     parser.add_argument('-t', '--gtf',
         default="%s/lib/Saccharomyces_cerevisiae.EF4.70.gtf" % src_dir,
-        help="gtf file for the given genome build.")
+        help="(Required) .gtf file for the given genome build.")
     parser.add_argument('-g', '--gain', type=float, default=1.0, 
                         help="""Coefficient to inflate the background.
 Normalizing a CLIP-seq dataset to a much larger (~20-fold) RNA-seq dataset
@@ -52,6 +49,9 @@ if __name__ == '__main__':
     src_dir = os.path.dirname(os.path.realpath(__file__))
     args = parse_args()
     # Variable initilization.
+    if not args.annotation_bed or (not os.path.exists(args.annotation_bed)):
+        annotation_bed_from_gtf.create_bed_from_gtf(args.gtf, src_dir + "/lib/tmp_genes.bed")
+        args.annotation_bed = src_dir + "/lib/tmp_genes.bed"
     clip_bam_filename = args.clip_reads
     regions_above_cutoff_filename = args.peaks
     if regions_above_cutoff_filename == "create":
@@ -102,7 +102,8 @@ if __name__ == '__main__':
         results_folder + '/ranges_no_dups')
     clip_tools.assign_to_gene(
         results_folder + '/ranges_no_dups',
-        results_folder + '/ranges_with_ann')
+        results_folder + '/ranges_with_ann',
+        annotation_file=args.annotation_bed)
     
     #'''
     peak_stats = dict()

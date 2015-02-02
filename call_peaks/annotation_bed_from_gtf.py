@@ -1,3 +1,7 @@
+"""
+Creates the annotation .bed file from a given .gtf needed for call_peaks.
+
+"""
 import sys
 import os
 import csv
@@ -5,8 +9,7 @@ import argparse
 import re
 
 
-if __name__ == "__main__":
-    gtf_filename = "/home/dp/Desktop/ensemblEF4/Saccharomyces_cerevisiae.EF4.70.gtf"
+def create_bed_from_gtf(gtf_filename, bed_filename):
     exons_by_txpt = {}
     genes = {}
     with open(gtf_filename, 'r') as f:
@@ -48,7 +51,7 @@ if __name__ == "__main__":
                     genes[txpt]['max_exon'][2] - genes[txpt]['max_exon'][1])):
                 print "Error: CDS and exon lengths don't match for %s" % txpt
                 print genes[txpt]
-    with open('./test.bed', 'w') as f:
+    with open(bed_filename, 'w') as f:
         for txpt in genes:
             if 'max_exon' not in genes[txpt]:
                 print "Missing exon lengths for %s" % txpt
@@ -57,3 +60,10 @@ if __name__ == "__main__":
             f.write("{chrm}\t{start}\t{end}\t{name}\t1\t{strand}\n".format(
                 chrm=iv[0], start=str(iv[1]), end=str(iv[2]),
                 name="ID=%s;" % txpt, strand=iv[3]))
+
+
+if __name__ == "__main__":
+    gtf_filename = sys.argv[1]
+    bed_filename = sys.argv[2]
+    create_bed_from_gtf(gtf_filename, bed_filename)
+    
