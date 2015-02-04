@@ -16,6 +16,7 @@ from peak import peak
 from gene import gene
 from gtf_data import gtf_data
 
+
 def normalize(clipReadsFname, backgroundReadsFname):
     # Get total read number from CLIP-seq .bam
     cmdl = ["samtools", "flagstat", str(clipReadsFname)]
@@ -31,8 +32,7 @@ def normalize(clipReadsFname, backgroundReadsFname):
     parseout = stp.search(str(stats.communicate()))
     if parseout:
         backgroundTotal = int(parseout.group(1)) + int(parseout.group(2))
-    print "clip reads:%f. rna seq reads:%f" % (float(clipTotal),
-                                               float(backgroundTotal))
+    print "clip reads:%i rna seq reads:%i" % (clipTotal, backgroundTotal)
     return float(clipTotal)/float(backgroundTotal)
     #clip peak/clip total cf background peak/background total
     #is the same as
@@ -63,67 +63,15 @@ def guess_bam_file(peaksFname, silent=False):
     return bamfile
 
 
-def moments(a): #takes averaged peak as argument
-    squaredDiff = 0
-    cubedDiff = 0
-    sumOfObservations = 0
-    summedXvalues = 0
-    fourthPower = 0
-    mean = 0
-    #calculate array size
-    arrsize = 0
-    for step in list(a.steps()):
-        if((step[0].start>11000) or (step[0].end>11000)):
-            pass
-        else:
-            for x in range(step[0].start, step[0].end):
-                arrsize+=1
-    
-    #alternative method: create a massive list
-    observations = scipy.zeros((arrsize,2))
-    obsList = list()
-    for step in list(a.steps()):
-        if((step[0].start>11000) or (step[0].end>11000)):
-            pass
-        else:
-            #print step[0].start
-            #print step[0].end
-            for x in range(step[0].start, step[0].end):
-                summedXvalues += step[1] * (x)
-                sumOfObservations += float(step[1])
-                observations[ x ] = (x, step[1])
-                obsList.extend([x] * int(step[1]) )
-    mean = float(summedXvalues)/sumOfObservations
-    print "stats:"
-    print observations[:,0]
-    print "describe:", scipy.stats.describe(obsList)
-    print scipy.stats.tmean(obsList, limits=(1,1000000))
-    print " test", scipy.stats.skewtest(obsList)
-    #print scipy.stats.tmin(observations,axis=0)
-    for step in list(a.steps()):
-        if((step[0].start>11000) or (step[0].start<9000) or (step[0].end>11000)):
-            pass
-        else:        
-                squaredDiff += step[1] * ((x-mean)**2)
-                cubedDiff += step[1] * ((x-mean)**3)
-                fourthPower += step[1] * ((x-mean)**4)
-                
-    variance = float(squaredDiff)/float(sumOfObservations)
-    standardDev = variance ** (0.5)
-    skew = (float(cubedDiff)/float(sumOfObservations)) * (variance**(-3/2))
-    kurtosis = float(fourthPower)/float(sumOfObservations) / (variance **2)
-    print "variance: %f standard_deviation: %f skew: %f mean: %f kurtosis: %f " % (variance, standardDev, skew, mean, kurtosis)
-
-
-def call_R(resultsFolder, peakStats, src_path):
+def call_R(results_folder, peakStats, src_path):
     # R cannot handle huge files, so we'll chunk the input file.
-    initialFile = open(resultsFolder + 'peaksForR.txt', 'r')
+    initialFile = open(results_folder + 'peaksForR.txt', 'r')
     numLinesInitialFile = 0
     numLines = 0
     binFiles = dict()
     binFilenames = dict()
     i = 0 #bin
-    binFilenames[i] = resultsFolder + "peaksForR.%i.txt" % i
+    binFilenames[i] = results_folder + "peaksForR.%i.txt" % i
     binFiles[i] = open(binFilenames[i], 'w')
     for li in initialFile:
         numLinesInitialFile += 1
@@ -132,12 +80,12 @@ def call_R(resultsFolder, peakStats, src_path):
         if(not(numLines % 500)):
             binFiles[i].close()
             i += 1
-            binFilenames[i] = resultsFolder + "peaksForR.%i.txt" % i
+            binFilenames[i] = results_folder + "peaksForR.%i.txt" % i
             binFiles[i] = open(binFilenames[i], 'w')
     binFiles[i].close()
     initialFile.close()
     numLinesInSeparateFiles = 0
-    # Call R and also check the sizes are correct
+    # Call R and also check the sizes are correct.
     for i in binFilenames:
         binF = open( binFilenames[i], 'r')
         for li in binF:
@@ -159,106 +107,7 @@ def call_R(resultsFolder, peakStats, src_path):
     return peakStats
 
 
-def create_fasta(bedfname, resultsFolder,
-                 fasta_file='~/Desktop/ensemblEF4/ef4.fa'):
-    """Ignores strand. Not usable."""
-    cmdl = r"fastaFromBed -fi %s " % fasta_file
-    cmdl = cmdl + "-bed %s/%s -fo %s/%s.fa" % (resultsFolder, bedfname, resultsFolder, bedfname)
-    print cmdl
-    os.system(cmdl)
-    analyzeFasta("%s/%s.fa" % (resultsFolder, bedfname), resultsFolder)
-
-
-def count_motifs_in_fasta(fasta_filename):
-    num_seqs = 0.0
-    num_with_dual_site = 0.0
-    num_with_any_site = 0.0
-    seq_sizes = list()
-    obs_chrs = list()
-    sequences = dict((p.name, p.seq) for p in HTSeq.FastaReader(fasta_filename))
-    for region in sequences:
-        num_seqs += 1.0
-        seq_sizes.append(len(sequences[region]))
-        obs_chrs.append(region.split(':')[0])
-        if(len(re.findall(r'TAAT', sequences[region])) > 0):
-            num_with_any_site += 1.0
-        if(len(re.findall(r'TAAT\w{0,30}TAAT', sequences[region])) > 0):
-            num_with_dual_site += 1.0
-    zero_sites = num_seqs - num_with_any_site
-    if(num_seqs == 0):
-        return False
-    fraction_any_site = num_with_any_site/num_seqs
-    fraction_dual_site = num_with_dual_site/num_seqs
-    print "**********"
-    print "Sequences\t%.0f" % num_seqs 
-    print "With a UAAU: %f (%f)" % (num_with_any_site, fraction_any_site)
-    print "With a dual UAAU: %f (%f)" % (num_with_dual_site, fraction_dual_site)
-    return (num_seqs, num_with_any_site, num_with_dual_site, seq_sizes, obs_chrs)
-
-    
-def analyze_fasta(fasta_filename, resultsFolder, do_random=True,
-                  genome_fasta='~/Desktop/ensemblEF4/ef4.fa',
-                  chr_sizes='/home/dp/Desktop/ensemblEF4/chr_lengths'):
-    # Process information from the given fasta file
-    print "CLIP:"
-    (n_seqs_clip, n_any_site_clip, n_dual_site_clip, seq_sizes, obs_chrs
-     ) = count_motifs_in_fasta(fasta_filename)
-    if(not do_random):
-        return
-    # Generate a negative control dataset
-    backup = r''''
-    chrSizeTable = {
-    'IX':439888,
-    'VII':1090940,
-    'XII':1078177,
-    'II':813184,
-    'VI':270161,
-    'X':745751,
-    'IV':1531933,
-    'XIII':924431,
-    'V':576874,
-    'Mito':85779,
-    'I':230218,
-    'III':316620,
-    'XI':666816,
-    'XV':1091291,
-    'XIV':784333,
-    'XVI':948066,
-    'VIII':562643}'''
-    chrSizeTable = dict()
-    with open(chr_sizes, 'r') as f:
-        for li in f:
-            s = li.rstrip('\n').split('\t')
-            chrSizeTable[s[0]] = int(s[1])
-    randomFa = open(resultsFolder +'/random.bed', 'w')
-    print "Writing to %s" % resultsFolder +'/random.bed'
-    for r in range(1, 1001):
-        rlen = random.choice(seq_sizes)
-        rchr = random.choice(obs_chrs)
-        rstart = random.choice(range(1, chrSizeTable[rchr]))
-        rend = rstart + rlen
-        rstrand = random.choice( [ '+', '-' ] )
-        lineO = "%s\t%i\t%i\t.\t.\t%s\n" % (rchr, rstart, rend, rstrand)
-        randomFa.write(lineO)
-    randomFa.close()
-    cmdl = "fastaFromBed -fi %s -bed " % genome_fasta
-    cmdl += resultsFolder + r'random.bed -fo ' + resultsFolder + r'random.fa'
-    os.system(cmdl)
-    # Process information from the negative control fasta file
-    print "Random seqs:"
-    (n_seqs_rand, n_any_site_rand, n_dual_site_rand, _, _) = count_motifs_in_fasta(
-        resultsFolder + r'random.fa')
-    oddsRatioDualSites, pvalueDualSite = scipy.stats.fisher_exact(
-        [[n_seqs_clip - n_dual_site_clip, n_dual_site_clip],
-        [n_seqs_rand - n_dual_site_rand, n_dual_site_rand]])
-    oddsRatioAnySite, pvalueAnySite = scipy.stats.fisher_exact(
-        [[n_seqs_clip - n_any_site_clip, n_any_site_clip],
-        [n_seqs_rand - n_any_site_rand, n_any_site_rand]])
-    print "p value Dual site\t%e\tp value any site\t%e\n" % (pvalueDualSite, pvalueAnySite)
-
-
-def retrieve_p_values(resultsFolder, bedfile, range_to_ann_line):
-    premerge_fname = "%s/%s" % (resultsFolder, bedfile)
+def retrieve_p_values(premerge_fname, range_to_ann_line):
     peak_name_to_merged_peak = dict()
     for a_range in range_to_ann_line:
         s = range_to_ann_line[a_range]['line'].rstrip('\n').split('\t')
@@ -268,7 +117,7 @@ def retrieve_p_values(resultsFolder, bedfile, range_to_ann_line):
     with open(premerge_fname, 'r') as f:
         for li in f:
             s = li.rstrip('\n').split('\t')
-            # s[3] is the peak number
+            # s[3] is the peak number.
             a_range = (s[0], s[1], s[2], s[5])
             peak_name = s[3]
             if(peak_name in peak_name_to_merged_peak):
@@ -278,7 +127,7 @@ def retrieve_p_values(resultsFolder, bedfile, range_to_ann_line):
             if(merged_peak_range in range_to_ann_line):
                 known_s = range_to_ann_line[merged_peak_range]['line'].rstrip('\n').split('\t')
                 known_s[6] = str(min(float(known_s[6]), float(s[6])))  # Set poisson
-                known_s[7] = str(min(float(known_s[7]), float(s[7])))  # Set ztnb
+                known_s[7] = str(min(float(known_s[7]), float(s[7])))  # Set nb
                 range_to_ann_line[merged_peak_range]['line'] = "\t".join(known_s) + "\n"
     return range_to_ann_line
 
@@ -299,44 +148,40 @@ def remove_duplicate_ranges(bedfilename, outfilename):
             f.write(ranges[a_range]['line'])
 
 
-def merge_peaks(bedfile, resultsFolder):
+def merge_peaks(bedfile, results_folder):
     cmdl = "sort -k1,1 -k2,2n %s/%s > %s/%s.formerge" % (
-        resultsFolder, bedfile, resultsFolder, bedfile)
+        results_folder, bedfile, results_folder, bedfile)
     print cmdl
     os.system(cmdl)
     # The output of bedtools merge will contain the highest peak height in column 5
     # of the merged peaks, the the peak numbers in column 4 separated by ;.
     # Use -d 5 option to merge peaks within 5 nucleotides
     cmdl = "bedtools merge -s -scores max -nms -i %s/%s.formerge > %s/%s.merged.bed" % (
-                resultsFolder, bedfile, resultsFolder, bedfile)
+                results_folder, bedfile, results_folder, bedfile)
     print cmdl
     os.system(cmdl)
-    cmdl = "rm %s/%s.formerge" % (resultsFolder, bedfile)
+    cmdl = "rm %s/%s.formerge" % (results_folder, bedfile)
     print cmdl
     #os.system(cmdl)
 
     
-def ranges_with_stats_to_peaks(bedfile, resultsFolder,
-                               annotation_file='', use_merged=False):
-    if(use_merged):
-        cmdl = "closestBed -s -a %s/%s.merged.bed -b %s > %s/%s.ann" % (
-            resultsFolder, bedfile, annotation_file, resultsFolder, bedfile)
-    else:
-        cmdl = "closestBed -s -a %s/%s -b %s > %s/%s.ann" % (
-            resultsFolder, bedfile, annotation_file, resultsFolder, bedfile)
-        # The PMA1 5'UTR peak is sometimes assigned to the upstream gene, so we
-        # just fix it by hand with sed
-        os.system("sed -i'.bak' 's/YGL007C-A/YGL008C/g' %s/%s.ann" % (
-            resultsFolder, bedfile))
-        print cmdl
-        os.system(cmdl)
-        range_to_ann_line = read_annotations_take_highest_peak_per_gene(
-            "%s/%s.ann" % (resultsFolder, bedfile))
-        # Sets the poisson and ztnb in the range_to_ann_line to be the minimum of the merged peaks
-        retrieve_p_values(resultsFolder, bedfile, range_to_ann_line)
-        write_ranges_with_gene_id_and_stats("%s/%s.peaks" % (
-            resultsFolder, bedfile), range_to_ann_line)
-        return True
+def ranges_with_stats_to_peaks(bedfile, annotation_file=''):
+    results_folder = os.path.dirname(bedfile)
+    annotated_results_file = "%s/%s.ann" %(results_folder, os.path.basename(bedfile))
+    cmdl = "closestBed -s -a %s -b %s > %s" % (bedfile, annotation_file,
+                                               annotated_results_file)
+    # The PMA1 5'UTR peak is sometimes assigned to the upstream gene, so we
+    # just fix it by hand with sed.
+    print "Re-assigning YGL007C-A peaks to YGL008C (autofixing a common error)."
+    os.system("sed -i'.bak' 's/YGL007C-A/YGL008C/g' %s" % (annotated_results_file))
+    print cmdl
+    os.system(cmdl)
+    range_to_ann_line = read_annotations_take_highest_peak_per_gene(annotated_results_file)
+    # Sets the poisson and ztnb in the range_to_ann_line to be the minimum of the merged peaks.
+    retrieve_p_values(bedfile, range_to_ann_line)
+    write_ranges_with_gene_id_and_stats("%s/%s.peaks" % (
+        results_folder, os.path.basename(bedfile)), range_to_ann_line)
+    return True
 
     
 def assign_to_gene(in_file, out_file, annotation_file=''):
@@ -385,12 +230,6 @@ def assign_to_gene(in_file, out_file, annotation_file=''):
         for line in out_lines:
             f.write(line)
             
-    #range_to_ann_line = read_annotations_take_highest_peak_per_gene("%s/%s.ann" % (
-    #         resultsFolder, bedfile))
-    #retrieve_p_values(resultsFolder, bedfile, range_to_ann_line)
-    #write_ranges_with_gene_id_and_stats("%s/%s.peaks" % (
-    #        resultsFolder, bedfile), range_to_ann_line)
-
     
 def write_ranges_with_gene_id_and_stats(
     filename, range_to_ann_line):
@@ -418,7 +257,6 @@ def read_annotations_take_highest_peak_per_gene(annotation_filename):
     peaks_by_id = dict()
     pat1 = r'ID=(\w+):([\w\-\(\)\d]+):'
     pat2 = r'ID=([\w\-\(\)\d]+);'
-    
     for li in pfile:
         s = li.rstrip("\n").split("\t")
         if(len(s) > 9):
@@ -436,7 +274,6 @@ def read_annotations_take_highest_peak_per_gene(annotation_filename):
                         continue
                 peaks_by_id[m.group(1)] = s[0:6] + [m.group(1)]
                 continue
-            #print "%s did not match regex..." % li
             gene_name = s[11]
             if(gene_name in peaks_by_id):
                 if(float(peaks_by_id[gene_name][4]) >= float(s[4])):
@@ -450,55 +287,38 @@ def read_annotations_take_highest_peak_per_gene(annotation_filename):
         line = "\t".join(str(x) for x in s[0:6]) + "\t"
         line += "\t".join(str(x) for x in [1.0, 1.0]) + "\n"
         peaks_by_range[a_range] = {'gene': a_gene, 'line': line}
-        #print "adding gene %s at the end" % gene
     return peaks_by_range
 
 
-def define_ranges(resultsFolder,
-                  regions_above_cutoff_filename,
-                  clipReadsFname,
-                  #backgroundReadsFname,
-                  normalCoef,
-                  peaks_ranges_filename,
-                  peakHeights, startTime, numPeaks):
-    if(not os.path.exists(resultsFolder)):
-        cmdl = r'mkdir ' + resultsFolder
-        print cmdl
+def define_ranges(regions_above_cutoff_filename, clipReadsFname,
+                  normalCoef, peaks_ranges_filename,
+                  peak_heights, start_time, num_peaks):
+    results_folder = os.path.dirname(regions_above_cutoff_filename)
+    if(not os.path.exists(results_folder)):
+        cmdl = r'mkdir ' + results_folder
         os.system(cmdl)
     peaksNewRanges = open(peaks_ranges_filename, 'w')
-    # file io for diagnostic wig file (aka bedgraph) for iv and
-    # bed file for stats regions
-    ivBedgraph = open(resultsFolder + 'iv.wig', 'w')
-    statsIvBed = open(resultsFolder + 'statsIv.bed', 'w')
-    lineO = "type=bedGraph\n" #required header line for bedgraph
+    # File io for diagnostic .wig file (aka bedgraph) for iv and
+    # .bed file for stats regions.
+    ivBedgraph = open(results_folder + 'iv.wig', 'w')
+    statsIvBed = open(results_folder + 'statsIv.bed', 'w')
+    lineO = "type=bedGraph\n"  # Required header line for bedgraph.
     ivBedgraph.write(lineO)
-    # For each region of interest in the input .bed file,
-    # write the peak number, CLIP height and bins from the given region to
-    # a peaksForR.txt file for statistical testing in R
     f = open(regions_above_cutoff_filename, 'r')
-    numProcessed = -1
-    for line in f:
-        numProcessed += 1
+    for num_processed, line in enumerate(f):
         s = line.rstrip("\n").split('\t')
-        try:
-            iv = [s[0], int(s[1]), int(s[2]), s[5]]
-        except:
-            print "Formatting error on line %s in file %s. length=%i" % (
-                line, regions_above_cutoff_filename, len(s))
-        # .bed files are CHR start   stop    name    score   strand,
-        # so iv is [chr,start,stop,strand]
-        p = peak(str(numProcessed), iv)
+        iv = [s[0], int(s[1]), int(s[2]), s[5]]  # [chr,start,stop,strand]
+        p = peak(str(num_processed), iv)
         p.add_reads_and_adjust_range(clipReadsFname)
-        peakHeights[p.name] = s[4]
-        peaksNewRanges.write(
-            "%i\t%s\n" % (numProcessed, p.write_range()))
+        peak_heights[p.name] = s[4]
+        peaksNewRanges.write("%i\t%s\n" % (num_processed, p.write_range()))
         p.writeBedgraphs(ivBedgraph, statsIvBed)
         # Write current timing.
-        if(numProcessed > 0 and not (numProcessed % 100)):
+        if(num_processed > 0 and not (num_processed % 100)):
             sys.stderr.write("processing peak %i of %i:\t" % (
-                numProcessed, numPeaks))
-            elapsedTime = (time.time() - startTime)
-            timeToFinish = (numPeaks-numProcessed)/(numProcessed/elapsedTime)
+                num_processed, num_peaks))
+            elapsedTime = (time.time() - start_time)
+            timeToFinish = (num_peaks-num_processed)/(num_processed/elapsedTime)
             outline = "Time elapsed: %f.1 m," % (elapsedTime/60)
             outline += " Time remaining: %f.1 m\n" % (timeToFinish/60)
             sys.stderr.write(outline)
@@ -508,12 +328,8 @@ def define_ranges(resultsFolder,
     statsIvBed.close()
     
 
-def process_ranges(resultsFolder,
-                   peaks_ranges_filename,
-                   clipReadsFname,
-                   backgroundReadsFname,
-                   normalCoef,
-                   peakStats,
+def process_ranges(peaks_ranges_filename, clipReadsFname, backgroundReadsFname,
+                   normalCoef, peakStats,
                    gtf_filename='lib/Saccharomyces_cerevisiae.EF4.70.gtf',
                    annotation_file=''):
     """Find the true heights and statistics for an init_ranges file.
@@ -521,16 +337,17 @@ def process_ranges(resultsFolder,
     and, in the last two columns: height and position of max height.
     However, those last two columns are only approximations.
     """
-    peakHeights = dict()
+    results_folder = os.path.dirname(peaks_ranges_filename)
+    peak_heights = dict()
     f = open(peaks_ranges_filename, 'r')
     f_corrected_height = open(peaks_ranges_filename + '.cor_height', 'w')
-    inputToR = open(resultsFolder + 'peaksForR.txt', 'w')
-    #gene_ranges = read_gff(annotation_file)
+    inputToR = open(results_folder + 'peaksForR.txt', 'w')
     gtf_info = gtf_data(gtf_filename)
     binned_genes = {}
     use_local_for_these_genes = ['RDN18-1', 'RDN37-1', 'RDN58-1',
                                  'RDN18-2', 'RDN37-2', 'RDN58-2',
-                                 'YLR154W-A', 'YLR154W-B', 'YLR154W-C']
+                                 'RDN5-1', 'RDN5-1',]
+                                 #'YLR154W-A', 'YLR154W-B', 'YLR154W-C']
     read_ends_clip_peak = HTSeq.GenomicArray(chroms="auto", stranded=True)
     read_ends_clip_gene = HTSeq.GenomicArray(chroms="auto", stranded=True)
     bins_clip_gene = HTSeq.GenomicArray(chroms="auto", stranded=True)
@@ -545,7 +362,7 @@ def process_ranges(resultsFolder,
         p = peak(str(s[0]), iv, height=int(s[5]), pos_of_peak=pos_of_peak,
                  gene_name=s[-1],gtf_info=False)
         p.add_reads_and_adjust_range(clipReadsFname)
-        peakHeights[p.name] = s[4]
+        peak_heights[p.name] = s[4]
         p.put_clip_reads_in_bins()
         if a_gene in gtf_info.txpt_ranges:
             if a_gene in binned_genes:
@@ -554,11 +371,15 @@ def process_ranges(resultsFolder,
                 gene_iv = [s[1], int(gtf_info.txpt_ranges[a_gene][0]),
                            int(gtf_info.txpt_ranges[a_gene][1]), s[6]]
                 binned_genes[a_gene] = gene(name=s[-1], gene_iv=gene_iv, gtf_info=gtf_info)
-                binned_genes[a_gene].add_clip_reads_in_gene_and_bin(clipReadsFname)
+                if a_gene not in use_local_for_these_genes:
+                    binned_genes[a_gene].add_clip_reads_in_gene_and_bin(clipReadsFname)
                 if backgroundReadsFname and a_gene not in use_local_for_these_genes:
                     binned_genes[a_gene].add_background_reads_in_gene_and_bin(
                         backgroundReadsFname)
-                p.calculate_poisson(a_binned_gene=binned_genes[a_gene])
+                if a_gene not in use_local_for_these_genes:
+                    p.calculate_poisson(a_binned_gene=binned_genes[a_gene])
+                else:
+                    p.calculate_poisson(a_binned_gene=False)
         else:
             print "Unknown gene %s..." % a_gene
             print p.calculate_poisson()
@@ -607,7 +428,7 @@ def process_ranges(resultsFolder,
     f_corrected_height.close()
     inputToR.close()
 
-
+not_used = '''
 def read_gff(filename):
     gene_ranges = {}
     pat = r'ID=([\w\-\(\)\d]+);'
@@ -618,7 +439,7 @@ def read_gff(filename):
             if m is not None:
                 gene_ranges[m.group(1)] = (int(s[1]), int(s[2]))
     return gene_ranges
-
+'''
 
 def add_p_value(ranges_without_stats_fname,
                 ranges_with_stats_fname,
@@ -638,15 +459,15 @@ def add_p_value(ranges_without_stats_fname,
             lineOut += "\t%e\t%e\n" % (peakStats[name]['Poisson'], peakStats[name]['ZTNB'])
             with_stats_f.write(lineOut)
         else:
-            print "error! did not find peak %s in peakStats" % str(numProcessed)
+            print "Error: Did not find peak %s in peakStats." % str(numProcessed)
     without_stats_f.close()
     with_stats_f.close()
 
-
-def separate_by_p_value(resultsFolder, peakStats):
-    newRangesF = open(resultsFolder + 'peaksNewRanges.txt', 'r')
-    past_pvalF = open(resultsFolder + 'peaksPastFdr', 'w')
-    allPeaksF  = open(resultsFolder + 'allpeaks', 'w')
+not_used = '''
+def separate_by_p_value(results_folder, peakStats):
+    newRangesF = open(results_folder + 'peaksNewRanges.txt', 'r')
+    past_pvalF = open(results_folder + 'peaksPastFdr', 'w')
+    allPeaksF  = open(results_folder + 'allpeaks', 'w')
     numProcessed = -1
     for line in newRangesF:
         numProcessed += 1
@@ -730,3 +551,4 @@ def normalize_peak_height_by_gene_abundance(peaks_fname,
             new_li += "\n"
             out_f.write(new_li)
     out_f.close()
+'''

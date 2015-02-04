@@ -4,7 +4,6 @@ library(MASS)
 vecOfFiles=character()
 args= commandArgs(trailingOnly = T)
 myargs =args[length(args)]
-print(typeof(args))
 if(length(args)==0){
 	vecOfFiles=append(vecOfFiles,"peaksForR.txt")
 	print("no args passed to R")
@@ -15,10 +14,8 @@ if(length(args)==0){
 		print(args[i])
 	}
 }
-print(vecOfFiles[[1]])
 
 sink("r.out")
-
 vOfPvalues = numeric()
 testFunc <- function(x) {
 	v = strsplit(x, '\t')
@@ -42,7 +39,6 @@ for (i in 1:length(vecOfFiles)) {
 	t = read.table(file=vecOfFiles[i], sep="\t")
  	tmp = apply(t, 1, testFunc )
 }
-
 sink()
 
-warnings()
+#warnings()

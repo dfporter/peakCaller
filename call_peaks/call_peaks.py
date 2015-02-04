@@ -1,8 +1,11 @@
 """
+Calls peaks in .bam files of CLIP-seq data.
+
 This script needs a .gtf for the whole genome (given with -t).
 It will create a .bed file of annotations from the .gtf. The
 .bed file can also be given with -a, if it already exists.
 
+A control dataset, such as RNA-seq, can also be provided.
 
 """
 import sys
@@ -90,8 +93,7 @@ if __name__ == '__main__':
     # This is the first main loop of the program:
     # For each peak, get the reads mapping in the general region from
     # peaks .bam and RNA-seq .bam and output to init_ranges.
-    clip_tools.define_ranges(results_folder,
-                             regions_above_cutoff_filename,
+    clip_tools.define_ranges(regions_above_cutoff_filename,
                              clip_bam_filename,
                              normalization_coefficient,
                              peaks_ranges_filename,
@@ -103,13 +105,11 @@ if __name__ == '__main__':
     clip_tools.assign_to_gene(
         results_folder + '/ranges_no_dups',
         results_folder + '/ranges_with_ann',
-        annotation_file=args.annotation_bed)
-    
+        annotation_file=args.annotation_bed)    
     #'''
     peak_stats = dict()
     print "Processing ranges in %s..." % peaks_ranges_filename
-    clip_tools.process_ranges(results_folder,
-                              "%s/ranges_with_ann" % results_folder,
+    clip_tools.process_ranges("%s/ranges_with_ann" % results_folder,
                               clip_bam_filename,
                               control_bam_filename,
                               normalization_coefficient,
@@ -127,5 +127,5 @@ if __name__ == '__main__':
     os.system("mv %s/ranges_with_stats %s/ranges" % (results_folder,
                                                        results_folder))
     print "Converting ranges with stats to a .peaks file..."
-    clip_tools.ranges_with_stats_to_peaks('ranges', results_folder,
+    clip_tools.ranges_with_stats_to_peaks(results_folder + '/ranges',
                                           annotation_file=args.annotation_bed)

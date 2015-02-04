@@ -31,6 +31,8 @@ class gene:
         self.put_background_reads_in_bins()
 
     def add_reads_to_bedgraph(self, bedgraph_obj):
+        if not hasattr(self, 'ga_read_starts'):
+            return False
         for iv, value in self.ga_read_starts.steps():
             bedgraph_obj[iv] += value
 
@@ -41,6 +43,10 @@ class gene:
             bedgraph_obj[iv] += value
 
     def add_bins_to_bedgraph(self, bedgraph_obj, which_set="clip"):
+        if which_set == "clip" and (not hasattr(self, 'bins')):
+            return False
+        if which_set == "background" and (not hasattr(self, 'background_bins')):
+            return False
         adjust_index_for_introns = 0
         for index, pos in enumerate(range(self.bin_lower_bound,
                        self.bin_upper_bound,
@@ -58,9 +64,6 @@ class gene:
                     print "index %i not in self.bins %s" % (index-adjust_index_for_introns, str(self.bins))
                     print "bins in introns %s" % str(self.bins_in_introns)
             if which_set == "background":
-                if not hasattr(self, 'background_bins'):
-                    print "Error: no background_bins in %s gene." % self.name
-                    return False
                 try:
                     bedgraph_obj[iv] += self.background_bins[index-adjust_index_for_introns]
                 except:

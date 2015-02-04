@@ -376,13 +376,11 @@ reload(peak)
                 self.ga_read_starts, self.iv[0], i, i+self.bin_size, self.iv[3]))
         self.reads_in_peak_bin = max(values_in_bins)
         
-    def calculate_poisson(self, a_binned_gene=False, return_boolean=False):
+    def calculate_poisson(self, a_binned_gene=False):
         """
         """
         if a_binned_gene:
-            #print "Using binned clip for poisson..."
             gene_bins = a_binned_gene.bins
-            #print "Bins from clip on this gene (%s): %s" % (self.gene_name, str(gene_bins))
             mu = float(sum(gene_bins))/float(len(gene_bins))
             pois_dist = poisson(mu)
             self.find_reads_in_peak_bin()
@@ -390,26 +388,10 @@ reload(peak)
             line = "%s\tRange=%s,mu=%e\treads_in_peak_bin=%e\tp_value=%e\tbins_around_peak=%s\n" % (
                 self.name, str(self.iv), mu, self.reads_in_peak_bin,
                 self.pvalue, str(self.clip_bin))
-            #print line
             return line
-        #var = scipy.stats.tvar(self.clip_bin)
-        #mean = scipy.stats.tmean(self.clip_bin)
         pois_dist = poisson(float(sum(self.clip_bin))/float(len(self.clip_bin)))
         self.find_reads_in_peak_bin()
         self.pvalue = 1-pois_dist.cdf(self.reads_in_peak_bin)
-        # Poisson with smaller range.
-        middle_bin_start = int((len(self.clip_bin) * 0.5))
-        middle_bin_end = int(len(self.clip_bin) * 1.5)
-        pois_dist = poisson(float(sum(self.clip_bin[middle_bin_start:middle_bin_end+1]))/float(
-            len(self.clip_bin[middle_bin_start:middle_bin_end+1])))
-        middle_region_pvalue = 1-pois_dist.cdf(self.reads_in_peak_bin)
-        #if middle_region_pvalue > self.pvalue:
-        #    self.pvalue = middle_region_pvalue
-        if(return_boolean):
-            if(self.pvalue < 0.001):
-                return True
-            else:
-                return False
         mu = float(sum(self.clip_bin))/float(len(self.clip_bin))
         return "%s\tRange=%s,mu=%e\treads_in_peak_bin=%e\tp_value=%e\tbins=%s\n" % (
             self.name, str(self.iv), mu, self.reads_in_peak_bin,
