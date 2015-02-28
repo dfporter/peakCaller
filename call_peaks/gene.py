@@ -15,8 +15,8 @@ class gene:
         self.name = name
         self.iv = gene_iv
         self.bin_size = 50
-        self.bin_lower_bound = self.iv[1] - 50
-        self.bin_upper_bound = self.iv[2] + 50
+        self.bin_lower_bound = self.iv[1] - self.bin_size
+        self.bin_upper_bound = self.iv[2] + self.bin_size
         if(self.bin_lower_bound < 1):
             self.bin_lower_bound = 1
         self.gtf_info = gtf_info
@@ -72,7 +72,7 @@ class gene:
                     print "bins in introns %s" % str(self.bins_in_introns) 
 
     def add_clip_reads_in_gene(self, clipReadsFname):
-        """Adds all reads in the genomic interval and binds.
+        """Adds all reads in the genomic interval and bins.
         """
         bamfile = pysam.AlignmentFile(clipReadsFname, "rb")
         s = bamfile.fetch(self.iv[0], int(self.iv[1]) - 200, int(self.iv[2]) + 200)
@@ -124,8 +124,7 @@ class gene:
         """Adds all reads in the genomic interval and bins.
         """
         bamfile = pysam.AlignmentFile(readsFname, "rb")
-        s = bamfile.fetch(self.iv[0], int(self.iv[1]) - 200,
-                          int(self.iv[2]) + 200)
+        s = bamfile.fetch(self.iv[0], int(self.iv[1]) - 200, int(self.iv[2]) + 200)
         self.reads = list()
         self.ga_background_read_starts = HTSeq.GenomicArray([self.iv[0]], stranded=True)
         for r in s:

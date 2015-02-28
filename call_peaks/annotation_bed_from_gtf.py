@@ -1,6 +1,8 @@
 """
 Creates the annotation .bed file from a given .gtf needed for call_peaks.
 
+.gtf files are 1-based.
+.bed files are 0-based.
 """
 import sys
 import os
@@ -58,7 +60,7 @@ def create_bed_from_gtf(gtf_filename, bed_filename):
                 continue
             iv = genes[txpt]['max_exon']
             f.write("{chrm}\t{start}\t{end}\t{name}\t1\t{strand}\n".format(
-                chrm=iv[0], start=str(iv[1]), end=str(iv[2]),
+                chrm=iv[0], start=str(iv[1] - 1), end=str(iv[2] - 1),
                 name="ID=%s;" % txpt, strand=iv[3]))
 
 

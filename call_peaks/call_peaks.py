@@ -72,14 +72,13 @@ if __name__ == '__main__':
         sys.stderr.write("Normalization coefficient is %.4f (Gain: %.3f)\n" % (
             normalization_coefficient, float(args.gain)))
     # Count the number of peaks.
-    num_peaks = 0
     with open(regions_above_cutoff_filename, 'r') as f:
-        for line in f:
-            num_peaks += 1
+        for num_peaks, line in enumerate(f):
+            pass
+    num_peaks += 1
     print "\n\nRegions above cutoff in .regions file: %i" % num_peaks
     # File io initialization.
-    peaksBasename = re.match(
-        r'(.+)\.regions',
+    peaksBasename = re.match(r'(.+)\.regions',
         os.path.basename(regions_above_cutoff_filename)).group(1)
     peaksBasename = re.sub(r'.bam', '', peaksBasename)
     results_folder = args.output_folder + '/' + peaksBasename + '/'
@@ -89,7 +88,6 @@ if __name__ == '__main__':
     peaks_ranges_filename = results_folder + 'init_ranges' 
     # Start the clock.
     startTime = time.time()
-    #skip = r'''
     # This is the first main loop of the program:
     # For each peak, get the reads mapping in the general region from
     # peaks .bam and RNA-seq .bam and output to init_ranges.
@@ -106,17 +104,17 @@ if __name__ == '__main__':
         results_folder + '/ranges_no_dups',
         results_folder + '/ranges_with_ann',
         annotation_file=args.annotation_bed)    
-    #'''
     peak_stats = dict()
     print "Processing ranges in %s..." % peaks_ranges_filename
-    clip_tools.process_ranges("%s/ranges_with_ann" % results_folder,
-                              clip_bam_filename,
-                              control_bam_filename,
-                              normalization_coefficient,
-                              peak_stats,
-                              gtf_filename=args.gtf,
-                              annotation_file=args.annotation_bed)
-    #sys.exit()
+    # binned_genes is returned to correct significances for gene length.
+    binned_genes = clip_tools.process_ranges(
+        "%s/ranges_with_ann" % results_folder,
+        clip_bam_filename,
+        control_bam_filename,
+        normalization_coefficient,
+        peak_stats,
+        gtf_filename=args.gtf,
+        annotation_file=args.annotation_bed)
     print "Finished processing ranges. Calling R..."
     # Call R and reformat the results, which are put in a file r.out.
     # callR() returns a dict with key = peak number, value = pvalue.
@@ -127,5 +125,6 @@ if __name__ == '__main__':
     os.system("mv %s/ranges_with_stats %s/ranges" % (results_folder,
                                                        results_folder))
     print "Converting ranges with stats to a .peaks file..."
-    clip_tools.ranges_with_stats_to_peaks(results_folder + '/ranges',
-                                          annotation_file=args.annotation_bed)
+    clip_tools.ranges_with_stats_to_peaks(
+        results_folder + '/ranges', binned_genes,
+        annotation_file=args.annotation_bed)

@@ -20,32 +20,18 @@ class peak:
         self.iv = iv
         self.height = height
         self.bin_size = 50
-        self.halfWidth = 1000  # For viewing bams
-        self.range_for_bins = 500  # For the poisson and ZTNB test
+        self.halfWidth = 1000  # For viewing bams.
+        self.range_for_bins = 500  # For the poisson and NB test.
         self.pos_of_peak = pos_of_peak
         self.gene_name = gene_name
-        if(self.iv[3] == "+"):
-            self.strandSelect = "-F 0x10"
-        if(self.iv[3] == "-"):
-            self.strandSelect = "-f 0x10"
-        #define the 1kb range around the given peak
-        #print "Created peak %s with range %s and height %i" % (str(name), str(iv), height)
         self.center_of_region = int(float(self.iv[1] + self.iv[2])/2.0)
         self.set_boundries_for_viewing_bams(use_pos_of_peak=False)
-        #print "Center set at %i" % self.center_of_region
 
     def add_reads_and_adjust_range(self, clipReadsFname):
         """Find the position of the peak, its extent and the read distribution.
         Called immediately after initializing a peak to define its shape.
-import pysam
-import peak
-p = peak.peak("0", ['XVI', 96581, 96582, '-'])
-clipReadsFname = '/home/dp/Desktop/bams/PUF_domain.bam'
-p.add_reads_in_peak('/home/dp/Desktop/bams/PUF_domain.bam')
-
-reload(peak)
         """
-        self.add_reads_in_peak(clipReadsFname) # Add reads under the peak from CLIP-seq data
+        self.add_reads_in_peak(clipReadsFname) # Add reads under the peak from CLIP-seq data.
         self.set_center_add_reads_in_region(clipReadsFname)
         self.adjust_range_around_peak()  # Changes self.iv[1]/.iv[2] start and stop positions
         
@@ -88,26 +74,19 @@ reload(peak)
         the initial self.iv range, and then later reset by viewing the bam file
         with the self.upper/lower_bound range.
         """
-        # Find the maximum of the peak.
-        highestValue = 0
+        highest_value = 0
         for s in self.ga_true_coverage.steps():
-            if(int(s[1]) > highestValue):
-                highestValue = int(s[1])
-                highestValueIV = s[0]
-                #print s
-        #print highestValueIV.start, highestValueIV.end, highestValue
-        if highestValue == 0:
+            if(int(s[1]) > highest_value):
+                highest_value = int(s[1])
+                highest_value_iv = s[0]
+        if highest_value == 0:
             self.pos_of_peak = float(self.iv[1] + self.iv[2])/2.0
             self.height = 0
             return False
-        highestValueCoord = float(highestValueIV.end + highestValueIV.start)/float(2)
-        self.pos_of_peak = int(highestValueCoord)
-        #print "Setting peak to (pos=%i, height=%i), previously height=%i." % (
-        #    self.pos_of_peak, highestValue, self.height)
-        self.height = highestValue
+        self.pos_of_peak = int(
+            float(highest_value_iv.end + highest_value_iv.start)/float(2))
+        self.height = highest_value
         self.set_boundries_for_viewing_bams(use_pos_of_peak=True)
-        #print "find_center set center as %i" % self.pos_of_peak
-        #print "and height as %f" % float(self.height)
         return True
 
     def set_center_add_reads_in_region(self, clipReadsFname):
@@ -117,7 +96,6 @@ reload(peak)
         Uses self.lower_bound, which was initialized as 1000 kb before
         the center of the peak.
         """
-        #print "In determineGA function, making a call to findCenter..."
         if(not self.find_position_of_max_coverage()):
             return False
         self.add_reads_in_general_region(clipReadsFname)
@@ -136,7 +114,6 @@ reload(peak)
         self.ga_read_starts = HTSeq.GenomicArray([self.iv[0]], stranded=True)
         bamfile = pysam.AlignmentFile(clipReadsFname, "rb")
         s = bamfile.fetch(self.iv[0], self.lower_bound, self.upper_bound)
-        #self.reads = list()
         for r in s:
             if(self.iv[3]=="+" and not r.is_reverse):
                 riv = HTSeq.GenomicInterval(
@@ -161,6 +138,13 @@ reload(peak)
         for iv, value in self.ga_background_read_starts.steps():
             bedgraph_obj[iv] += value
 
+    def add_bins_to_bedgraph(self, bedgraph_obj):
+        if not hasattr(self, 'bin_lower_bound'):
+            print "Error: Asked to report bins, but no bins are set for %s." % self.name
+        for _bin in self.clip_bins:
+            iv = HTSeq.GenomicInterval(*_bin['iv'])
+            bedgraph_obj[iv] += _bin['signal']
+            
     def addBackgroundReads(self, backgroundReadsFname):
         self.ga_background_read_starts = HTSeq.GenomicArray([self.iv[0]], stranded=True)
         bamfile = pysam.AlignmentFile(backgroundReadsFname, "rb")
@@ -176,14 +160,17 @@ reload(peak)
                 self.ga_background_read_starts[r_pos] += 1
         bamfile.close()
         
-    def writeBedgraphs(self, ivBedgraph, statsIvBed):
+    def write_bedgraphs(self, peak_iv_bedgraph, region_for_stats_bed):
+        """Write the peak boundaries as .bedgraph and region used for
+        stats as .bed. Called only during define_ranges().
+        """
         #format=chromA  chromStartA  chromEndA  dataValueA
-        line_newRegions = "%s\t%i\t%i\t%i\n" % (self.iv[0], self.iv[1], self.iv[2], self.height)
-        ivBedgraph.write(line_newRegions)
-        line_statsIv = "%s\t%i\t%i\t%s\t%i\t%s\n" % (
+        line_peak_boundaries = "%s\t%i\t%i\t%i\n" % (self.iv[0], self.iv[1], self.iv[2], self.height)
+        peak_iv_bedgraph.write(line_peak_boundaries)
+        line_stats_iv = "%s\t%i\t%i\t%s\t%i\t%s\n" % (
             self.iv[0], self.lower_bound, self.upper_bound,
             self.name, self.height, self.iv[3])
-        statsIvBed.write(line_statsIv)
+        region_for_stats_bed.write(line_stats_iv)
 
     def adjust_range_around_peak(self):
         """Sets self.center_of_region, and self.iv[0] and self.iv[1],
@@ -229,7 +216,6 @@ reload(peak)
             if(start_of_search_region < 1):
                 left_edge = 1
                 found_edge = True
-        #print "Left edge set as %i" % left_edge
         if(left_edge >= 0):
             self.iv[1] = left_edge
         else:
@@ -242,26 +228,37 @@ reload(peak)
                 self.iv[2] = self.pos_of_peak + 20
         self.center_of_region = int(float(self.iv[1] + self.iv[2])/2.0)
         self.set_boundries_for_viewing_bams()
-        #print "adjust_range(): center set as %i based on range extremes of 0.2 height" % self.center
         return True
 
     def write_range(self):
-        # .bed is chr start stop name score strand
+        """Return a .bed formatted line of the range of the peak.
+        .bed format is chr start stop name score strand
+        """
         lineO = "%s\t%i\t%i\t%s\t%i\t%s\t%i" % (
             self.iv[0], self.iv[1], self.iv[2], str(self.name),
             int(self.height), self.iv[3], self.pos_of_peak)
-        #print "write_range(): %s" % lineO
         return lineO
 
-    def set_bin_locations(self):
-        self.num_bins = int(float(self.range_for_bins)/float(self.bin_size))
-        # Define bin_lower_bound so that the center bin countains the center of the peak.
-        self.bin_lower_bound = self.pos_of_peak - self.range_for_bins - int(float(self.bin_size)/2.0) 
+    def set_bin_locations(self, use_bins_from_gene=False):
+        """Set bin locations so they can be used for statistics.
+        Set the genomic positions of the left edges of the leftmost
+        and rightmost bin.
+        """
+        if use_bins_from_gene:
+            self.offset = self.pos_of_peak - use_bins_from_gene.bin_lower_bound
+            self.offset = self.offset % self.bin_size  # Genes and peaks must have the same bin size.
+        else:
+            self.offset = int(float(self.bin_size)/2.0) 
+        self.num_bins = int(float(2 * self.range_for_bins)/float(self.bin_size))
+        self.bin_lower_bound = self.pos_of_peak - self.range_for_bins - self.offset
         if(self.bin_lower_bound < 1):
             self.bin_lower_bound = 1
+        self.bin_upper_bound = self.bin_lower_bound + (2 * self.range_for_bins)
 
     def max_value_in_range_read_ends(self, chrm, start, end, strand):
-        # Calculate the maximimum value in the bin.
+        """Calculate the maximimum value in the bin.
+        Not used, I think.
+        """
         highV = 0
         k = list(self.ga_read_starts[HTSeq.GenomicInterval(
             chrm, start, end, strand)].steps() )
@@ -270,19 +267,22 @@ reload(peak)
                 highV = int(j[1])
         return highV
 
-    def put_clip_reads_in_bins(self):
-        self.set_bin_locations()
-        self.clip_bin = list()
+    def put_clip_reads_in_bins(self, use_bins_from_gene=False):
+        self.set_bin_locations(use_bins_from_gene=use_bins_from_gene)
+        self.clip_bins = list()
         for i in range(self.bin_lower_bound,
-                       self.pos_of_peak + self.range_for_bins - self.bin_size,
+                       self.bin_upper_bound,
                        self.bin_size):
-            self.clip_bin.append(
-                self.total_reads_in_bin(self.ga_read_starts, self.iv[0], i, i+self.bin_size, self.iv[3]))
-        if(len(self.clip_bin) < 1):
-            self.clip_bin = [0]
+            iv = (self.iv[0], i, i + self.bin_size, self.iv[3])
+            value_in_bin = self.total_reads_in_bin(self.ga_read_starts, *iv)
+            self.clip_bins.append({'iv': iv, 'signal': value_in_bin})
+        if(len(self.clip_bins) < 1):
+            self.clip_bins = [{'iv': self.iv, 'signal': 0.0}]
+            print "No clip bins for peak %s?" % self.name
             
     def total_reads_in_bin(self, ga_obj, chrm, start, end, strand):
-        # Calculate the maximimum value in the bin.
+        """Sum all reads in a given bin.
+        """
         total_reads = 0
         for iv, value in list(ga_obj[HTSeq.GenomicInterval(
             chrm, start, end, strand)].steps()):
@@ -293,46 +293,34 @@ reload(peak)
         background_bin = list()
         verb = False
         for i in range(self.bin_lower_bound,
-                       self.pos_of_peak + self.range_for_bins - self.bin_size,
+                       self.bin_upper_bound,
                        self.bin_size):
-            value_in_bin = self.total_reads_in_bin(
-                self.ga_background_read_starts, self.iv[0], i, i+self.bin_size, self.iv[3])
-            if value_in_bin > 0:
-                background_bin.append(float(value_in_bin))
-        background_bin.sort(reverse=True)
+            iv = (self.iv[0], i, i + self.bin_size, self.iv[3])
+            value_in_bin = self.total_reads_in_bin(self.ga_background_read_starts, *iv)
+            self.background_bins.append({'iv': iv, 'signal': value_in_bin})
         if(len(background_bin) < 1):
-            background_bin = [0]
+            background_bin = [{'iv': self.iv, 'signal': 0}]
+            print "No background bins for peak %s?" % self.name
         return background_bin
             
     def write_background_bins(self, normalCoef=1.0, a_binned_gene=False, output_zeros=False):
-        #suppose file is of the format:
-        #peakNumber     height  1,4,2,5,2
-        #the R code takes a file in which one column is a comma separated list of integers and sets y equal to the set of integers
-        #t = read.table(file="", sep="\t")
-        #y =as.numeric(strsplit(as.character(t[1,3]), ',', fixed=TRUE)[[1]])
-        #fit a negative binomial to the bins
-        #ff = fitdistr(y, "Negative Binomial")
-        #est_size = ff$estimate[1]
-        #est_mu = ff$estimate[2]
-        #this code then gives the p value for getting the observed height from a negative binomial distribution built from the given bins
-        #1 - pnbinom(q=t[1,2], size=est_size, mu=est_mu)
-        
-        # If there is no background, make sure there is something
-        # for R to model so R doesn't crash
+        """Write the background for R to model.
+        If there is no background, make sure there is something
+        (a near-zero background) for R to model so R doesn't crash.
+        TO-DO: a better solution.
+        """
         if a_binned_gene:
             background_bin = a_binned_gene.background_bins
             lineO = "%s\t%s\t" % (self.name, self.reads_in_peak_bin)
             for j in background_bin:
                 lineO += "%f," % float(j * normalCoef)
             lineO += "\n"
-            #print "*(************"
-            #print lineO
             return lineO
         if(output_zeros):
             background_bin = [0.0, 0.0, 0.0, 0.0, 1.0]
         else:
             background_bin = self.put_background_reads_in_bins()
-            background_bin = [normalCoef * x for x in background_bin]
+            background_bin = [normalCoef * x['signal'] for x in background_bin]
         if(len(background_bin) < 3):
             background_bin = [0.0, 0.0, 0.0, 0.0, 1.0]
         lineO = "%s\t%s\t" % (self.name, self.reads_in_peak_bin)
@@ -347,74 +335,62 @@ reload(peak)
         as the number of reads in the center bin may give a lower number than to the side.
         We will therefore allow some flexibility in where the "center bin" is.
         """
-        #self.reads_in_peak_bin = self.clip_bin[int(float(self.num_bins)/2.0)]
         left_bins = []
         right_bins = []
+        # Set some defaults in case the peak is so long we can't find overlapping borders.
+        self.leftmost_bin = sorted(self.clip_bins, key=lambda x: x['iv'][1])[0]
+        self.rightmost_bin = sorted(self.clip_bins, key=lambda x: x['iv'][1])[-1]
         # What bins overlap the peak range?
-        #print "peak range %s, bin range %s" % (str(self.iv),
-        #                                       str((self.bin_lower_bound,
-#                       self.pos_of_peak + self.range_for_bins - self.bin_size,
-#                       self.bin_size)))
-        for i in range(self.bin_lower_bound-1000,
-                       self.pos_of_peak + self.range_for_bins - self.bin_size+1000,
-                       self.bin_size):
-            if(i <= self.iv[1] <= i+self.bin_size):
+        for _bin in self.clip_bins:
+            if(_bin['iv'][1] <= self.iv[1] <= _bin['iv'][2]):
                 # Left peak boundary overlaps this bin
-                overlap_left = max([(i+self.bin_size-self.iv[1]), (self.iv[1]-i)])
-                left_bins.append(i)
-            if(i <= self.iv[2] <= i+self.bin_size):
+                left_bins.append(_bin)
+            if(_bin['iv'][1] <= self.iv[2] <= _bin['iv'][2]):
                 # Right peak boundary overlaps this bin
-                overlap_right = max([(i+self.bin_size-self.iv[2]), (self.iv[2]-i)])
-                right_bins.append(i)
-        self.leftmost_bin = min(left_bins)
-        self.rightmost_bin = max(right_bins)
-        if self.leftmost_bin == self.rightmost_bin:
-            self.rightmost_bin = self.leftmost_bin + self.bin_size
-        values_in_bins = [0]
-        for i in range(self.leftmost_bin, self.rightmost_bin, self.bin_size):
-            values_in_bins.append(self.total_reads_in_bin(
-                self.ga_read_starts, self.iv[0], i, i+self.bin_size, self.iv[3]))
+                right_bins.append(_bin)
+        if len(left_bins) > 0:
+             self.leftmost_bin = sorted(left_bins, key=lambda x: x['iv'][1])[0]
+        if len(right_bins) > 0:
+            self.rightmost_bin = sorted(right_bins, key=lambda x: x['iv'][1])[-1]
+        self.leftmost_bin_index = self.clip_bins.index(self.leftmost_bin)
+        self.rightmost_bin_index = self.clip_bins.index(self.rightmost_bin)
+        if self.leftmost_bin_index == self.rightmost_bin_index:
+            if (self.leftmost_bin_index + 1) > (len(self.clip_bins) - 1):
+                self.rightmost_bin_index = self.leftmost_bin_index
+                print "Error: only one bin? Peak %i. Bins %s." % (self.name, str(self.clip_bins))
+            else:
+                self.rightmost_bin_index = self.leftmost_bin_index + 1
+        values_in_bins = [_bin['signal'] for _bin in self.clip_bins]
+        for i in range(self.leftmost_bin_index, self.rightmost_bin_index, 1):
+            values_in_bins.append(self.clip_bins[i]['signal'])
         self.reads_in_peak_bin = max(values_in_bins)
         
     def calculate_poisson(self, a_binned_gene=False):
-        """
+        """Calculate a p value by Poisson.
         """
         if a_binned_gene:
             gene_bins = a_binned_gene.bins
             mu = float(sum(gene_bins))/float(len(gene_bins))
             pois_dist = poisson(mu)
             self.find_reads_in_peak_bin()
-            self.pvalue = 1-pois_dist.cdf(self.reads_in_peak_bin)
+            self.pvalue = 1 - pois_dist.cdf(self.reads_in_peak_bin)
+            # Correct for multiple hypothesis testing - that is,
+            # get the p value for obtaining a significant bin somewhere in
+            # the given gene. We assume this is exon + 200 bases, as an approximation.
+            # An exact value is not used because an exact transcript length
+            # is not generally known.
+            self.pvalue_by_gene = self.pvalue * float(len(gene_bins) + 2)
             line = "%s\tRange=%s,mu=%e\treads_in_peak_bin=%e\tp_value=%e\tbins_around_peak=%s\n" % (
                 self.name, str(self.iv), mu, self.reads_in_peak_bin,
-                self.pvalue, str(self.clip_bin))
+                self.pvalue, str(self.clip_bins))
             return line
-        pois_dist = poisson(float(sum(self.clip_bin))/float(len(self.clip_bin)))
+        total_across_bins = float(sum([_bin['signal'] for _bin in self.clip_bins]))
+        mu = total_across_bins/float(len(self.clip_bins)) 
+        pois_dist = poisson(mu)
         self.find_reads_in_peak_bin()
         self.pvalue = 1-pois_dist.cdf(self.reads_in_peak_bin)
-        mu = float(sum(self.clip_bin))/float(len(self.clip_bin))
+        # No gene length information; use the length of the binned region.
+        self.pvalue_by_gene = self.pvalue * float(self.num_bins)
         return "%s\tRange=%s,mu=%e\treads_in_peak_bin=%e\tp_value=%e\tbins=%s\n" % (
             self.name, str(self.iv), mu, self.reads_in_peak_bin,
-            self.pvalue, str(self.clip_bin))
-    
-    def rescalePeak(self):
-        self.relga = HTSeq.GenomicArray( ['chrI'], stranded=True)
-        for s in self.ga.steps():
-            relStart = int(10000 + s[0].start - int(self.center+self.halfWidth))
-            if(relStart < -1):
-                 next
-            relEnd = int(10000 + s[0].end - int(self.center+self.halfWidth))
-            if(relEnd < 0):
-                 next        
-            #print "start/stop= %i, %i" % (relStart, relEnd)
-            if(relEnd < relStart):
-                print "uh oh! backwards %i %i"
-                exit
-            if(abs(relEnd - relStart) > 10000):
-                next
-            else:
-                if(relEnd == relStart):
-                    r = HTSeq.GenomicPosition('chrI', relStart, s[0].strand)
-                else:
-                    r = HTSeq.GenomicInterval('chrI', relStart, relEnd, s[0].strand) 
-                self.relga[ r ] += 1000* float(s[1])/float(self.height)
+            self.pvalue, str(self.clip_bins))

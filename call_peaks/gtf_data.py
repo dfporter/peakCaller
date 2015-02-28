@@ -10,6 +10,9 @@ class gtf_data:
         self.read_file(gtf_filename)
         
     def read_file(self, gtf_filename):
+        # GTF files are 1-based. HTSeq genomic arrays are 0-based.
+        # We move all coordinates back by one so they will
+        # be treated as 0-based.
         with open(gtf_filename, 'r') as f:
             self.exons_by_txpt = {}
             for li in f:
@@ -21,8 +24,8 @@ class gtf_data:
                 txpt_id = re.sub(r'''"''', '', m.group(1))
                 if s[2] == "exon":
                     this_exon = {
-                        'start': int(s[3]),
-                        'end': int(s[4]),
+                        'start': int(s[3]) - 1,
+                        'end': int(s[4]) - 1,
                         'strand': s[6]}
                     self.exons_by_txpt.setdefault(txpt_id, [])
                     self.exons_by_txpt[txpt_id].append(this_exon)
