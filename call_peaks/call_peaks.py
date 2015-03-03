@@ -96,35 +96,34 @@ if __name__ == '__main__':
                              normalization_coefficient,
                              peaks_ranges_filename,
                              peakHeights, startTime, num_peaks)
-    
     clip_tools.remove_duplicate_ranges(
         results_folder + 'init_ranges',
         results_folder + '/ranges_no_dups')
     clip_tools.assign_to_gene(
         results_folder + '/ranges_no_dups',
         results_folder + '/ranges_with_ann',
-        annotation_file=args.annotation_bed)    
-    peak_stats = dict()
+        annotation_file=args.annotation_bed)
     print "Processing ranges in %s..." % peaks_ranges_filename
     # binned_genes is returned to correct significances for gene length.
-    binned_genes = clip_tools.process_ranges(
+    (peaks, binned_genes) = clip_tools.process_ranges(
         "%s/ranges_with_ann" % results_folder,
         clip_bam_filename,
         control_bam_filename,
         normalization_coefficient,
-        peak_stats,
         gtf_filename=args.gtf,
         annotation_file=args.annotation_bed)
     print "Finished processing ranges. Calling R..."
     # Call R and reformat the results, which are put in a file r.out.
     # callR() returns a dict with key = peak number, value = pvalue.
-    clip_tools.call_R(results_folder, peak_stats, src_dir)
-    clip_tools.add_p_value("%s/ranges_with_ann.cor_height" % results_folder,
-                           results_folder + 'ranges_with_stats',
-                           peak_stats)
-    os.system("mv %s/ranges_with_stats %s/ranges" % (results_folder,
-                                                       results_folder))
+    clip_tools.call_R(results_folder, peaks, src_dir, which='background')
+    clip_tools.call_R(results_folder, peaks, src_dir, which='clip')
+    #clip_tools.add_p_value("%s/ranges_with_ann.cor_height" % results_folder,
+    #                       results_folder + 'ranges_with_stats',
+    #                       peak_stats)
+    #os.system("mv %s/ranges_with_stats %s/ranges" % (results_folder,
+    #                                                   results_folder))
     print "Converting ranges with stats to a .peaks file..."
     clip_tools.ranges_with_stats_to_peaks(
-        results_folder + '/ranges', binned_genes,
+        results_folder, binned_genes, peaks,
         annotation_file=args.annotation_bed)
+    print "Finished with file %s." % clip_bam_filename

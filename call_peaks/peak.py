@@ -139,9 +139,10 @@ class peak:
             bedgraph_obj[iv] += value
 
     def add_bins_to_bedgraph(self, bedgraph_obj):
-        if not hasattr(self, 'bin_lower_bound'):
+        if not hasattr(self, 'leftmost_bin_index'):
             print "Error: Asked to report bins, but no bins are set for %s." % self.name
-        for _bin in self.clip_bins:
+        for i in range(self.leftmost_bin_index, self.rightmost_bin_index + 1, 1):
+            _bin = self.clip_bins[i]
             iv = HTSeq.GenomicInterval(*_bin['iv'])
             bedgraph_obj[iv] += _bin['signal']
             
@@ -239,11 +240,31 @@ class peak:
             int(self.height), self.iv[3], self.pos_of_peak)
         return lineO
 
+    def write_as_peaks_format(self, multiply_p_values=False):
+        line = "{chrm}\t{start}\t{end}\t{name}\t{height}\t{strand}".format(
+            chrm=self.iv[0], start=self.iv[1], end=self.iv[2],
+            name=self.name, height=self.height, strand=self.iv[3])
+        if multiply_p_values:
+            line += "\t{clip_poisson}\t{nb_background}\t{nb_clip}".format(
+                clip_poisson=min(1.0, self.poisson_pvalue_by_gene),
+                nb_background=min(
+                    1.0, float(self.background_nb_p_value * multiply_p_values)),
+                nb_clip=min(1.0, float(self.clip_nb_p_value * multiply_p_values)))
+        else:
+            line += "\t{clip_poisson}\t{nb_background}\t{nb_clip}".format(
+                clip_poisson=min(1.0, self.poisson_pvalue_by_gene),
+                nb_background=min(1.0, self.background_nb_p_value),
+                nb_clip=min(1.0, self.clip_nb_p_value))
+            
+        line += "\t%s\n" % self.gene_name
+        return line
+    
     def set_bin_locations(self, use_bins_from_gene=False):
         """Set bin locations so they can be used for statistics.
         Set the genomic positions of the left edges of the leftmost
         and rightmost bin.
         """
+        #use_bins_from_gene = False
         if use_bins_from_gene:
             self.offset = self.pos_of_peak - use_bins_from_gene.bin_lower_bound
             self.offset = self.offset % self.bin_size  # Genes and peaks must have the same bin size.
@@ -290,7 +311,7 @@ class peak:
         return total_reads
     
     def put_background_reads_in_bins(self):
-        background_bin = list()
+        self.background_bins = list()
         verb = False
         for i in range(self.bin_lower_bound,
                        self.bin_upper_bound,
@@ -298,24 +319,48 @@ class peak:
             iv = (self.iv[0], i, i + self.bin_size, self.iv[3])
             value_in_bin = self.total_reads_in_bin(self.ga_background_read_starts, *iv)
             self.background_bins.append({'iv': iv, 'signal': value_in_bin})
-        if(len(background_bin) < 1):
-            background_bin = [{'iv': self.iv, 'signal': 0}]
+        if(len(self.background_bins) < 1):
+            self.background_bins = [{'iv': self.iv, 'signal': 0}]
             print "No background bins for peak %s?" % self.name
-        return background_bin
-            
-    def write_background_bins(self, normalCoef=1.0, a_binned_gene=False, output_zeros=False):
+        return self.background_bins
+    
+    def process_bins(self, bin_list):
+        nonzero_bins = list()
+        for _bin in bin_list:
+            if _bin > 0:
+                nonzero_bins.append(_bin)
+        if len(nonzero_bins) > 0:
+            bin_list = nonzero_bins
+        return bin_list
+    
+    def compose_line_for_R(self, bin_list, normal_coef):
+        line = "%s\t%s\t" % (self.name, self.reads_in_peak_bin)
+        for j in bin_list:
+            line += "%f," % float(j * normal_coef)
+        line += "\n"
+        return line
+    
+    def set_line_for_R(self, normalCoef=1.0, a_binned_gene=False,
+                              output_zeros=False):
         """Write the background for R to model.
         If there is no background, make sure there is something
         (a near-zero background) for R to model so R doesn't crash.
         TO-DO: a better solution.
         """
         if a_binned_gene:
+            # NB vs background.
             background_bin = a_binned_gene.background_bins
-            lineO = "%s\t%s\t" % (self.name, self.reads_in_peak_bin)
-            for j in background_bin:
-                lineO += "%f," % float(j * normalCoef)
-            lineO += "\n"
-            return lineO
+            # Remove bins with zero signal (probably not real bins).
+            background_bin = self.process_bins(background_bin)
+            self.background_line_for_R = self.compose_line_for_R(
+                background_bin, normalCoef)
+            # NB vs CLIP signal in gene.
+            clip_in_gene_bins = a_binned_gene.bins
+            # We allow zero-signal bins for CLIP.
+            self.clip_line_for_R = self.compose_line_for_R(
+                clip_in_gene_bins, 1.0)
+            return self.background_line_for_R
+        # Not using information from a gene, just local region.
         if(output_zeros):
             background_bin = [0.0, 0.0, 0.0, 0.0, 1.0]
         else:
@@ -323,11 +368,11 @@ class peak:
             background_bin = [normalCoef * x['signal'] for x in background_bin]
         if(len(background_bin) < 3):
             background_bin = [0.0, 0.0, 0.0, 0.0, 1.0]
-        lineO = "%s\t%s\t" % (self.name, self.reads_in_peak_bin)
-        for j in background_bin:
-            lineO += "%f," % float(j)
-        lineO += "\n"
-        return lineO
+        self.background_line_for_R = self.compose_line_for_R(
+            background_bin, 1.0)
+        self.clip_line_for_R = self.compose_line_for_R(
+            [_bin['signal'] for _bin in self.clip_bins], 1.0)
+        return self.background_line_for_R
 
     def find_reads_in_peak_bin(self):
         """Reads in bins are counted from the 5' end, while the center of the peak is counted
@@ -343,10 +388,10 @@ class peak:
         # What bins overlap the peak range?
         for _bin in self.clip_bins:
             if(_bin['iv'][1] <= self.iv[1] <= _bin['iv'][2]):
-                # Left peak boundary overlaps this bin
+                # Left peak boundary overlaps this bin.
                 left_bins.append(_bin)
             if(_bin['iv'][1] <= self.iv[2] <= _bin['iv'][2]):
-                # Right peak boundary overlaps this bin
+                # Right peak boundary overlaps this bin.
                 right_bins.append(_bin)
         if len(left_bins) > 0:
              self.leftmost_bin = sorted(left_bins, key=lambda x: x['iv'][1])[0]
@@ -361,7 +406,7 @@ class peak:
             else:
                 self.rightmost_bin_index = self.leftmost_bin_index + 1
         values_in_bins = [_bin['signal'] for _bin in self.clip_bins]
-        for i in range(self.leftmost_bin_index, self.rightmost_bin_index, 1):
+        for i in range(self.leftmost_bin_index, self.rightmost_bin_index + 1, 1):
             values_in_bins.append(self.clip_bins[i]['signal'])
         self.reads_in_peak_bin = max(values_in_bins)
         
@@ -370,27 +415,39 @@ class peak:
         """
         if a_binned_gene:
             gene_bins = a_binned_gene.bins
+            #nonzero_bins = []
+            #for _bin in gene_bins:
+            #    if _bin > 0:
+            #        nonzero_bins.append(_bin)
+            #if len(nonzero_bins) > 0:
+            #    gene_bins = nonzero_bins
             mu = float(sum(gene_bins))/float(len(gene_bins))
             pois_dist = poisson(mu)
             self.find_reads_in_peak_bin()
-            self.pvalue = 1 - pois_dist.cdf(self.reads_in_peak_bin)
+            self.poisson_pvalue = 1 - pois_dist.cdf(self.reads_in_peak_bin)
             # Correct for multiple hypothesis testing - that is,
             # get the p value for obtaining a significant bin somewhere in
             # the given gene. We assume this is exon + 200 bases, as an approximation.
             # An exact value is not used because an exact transcript length
             # is not generally known.
-            self.pvalue_by_gene = self.pvalue * float(len(gene_bins) + 2)
+            self.poisson_pvalue_by_gene = self.poisson_pvalue * float(len(gene_bins) + 2)
             line = "%s\tRange=%s,mu=%e\treads_in_peak_bin=%e\tp_value=%e\tbins_around_peak=%s\n" % (
                 self.name, str(self.iv), mu, self.reads_in_peak_bin,
-                self.pvalue, str(self.clip_bins))
+                self.poisson_pvalue, str(self.clip_bins))
             return line
         total_across_bins = float(sum([_bin['signal'] for _bin in self.clip_bins]))
         mu = total_across_bins/float(len(self.clip_bins)) 
         pois_dist = poisson(mu)
         self.find_reads_in_peak_bin()
-        self.pvalue = 1-pois_dist.cdf(self.reads_in_peak_bin)
+        self.poisson_pvalue = 1-pois_dist.cdf(self.reads_in_peak_bin)
         # No gene length information; use the length of the binned region.
-        self.pvalue_by_gene = self.pvalue * float(self.num_bins)
+        self.poisson_pvalue_by_gene = self.poisson_pvalue * float(self.num_bins)
         return "%s\tRange=%s,mu=%e\treads_in_peak_bin=%e\tp_value=%e\tbins=%s\n" % (
             self.name, str(self.iv), mu, self.reads_in_peak_bin,
-            self.pvalue, str(self.clip_bins))
+            self.poisson_pvalue, str(self.clip_bins))
+
+    def remove_read_info(self):
+        del self.ga_true_coverage
+        del self.ga_read_starts
+        if hasattr(self, 'ga_background_read_starts'):
+            del self.ga_background_read_starts
