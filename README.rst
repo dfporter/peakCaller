@@ -13,7 +13,7 @@ That is, the signal across the assigned gene is modeled by Poisson.
 If given a negative control, will model the negative control as a negative binomial.
 This is also modelled for the signal across the assigned gene.
 
-For yeast ribosomal loci, it shifts to a local mode (1 kbp around peak), similar to Piranha.
+For yeast ribosomal loci, it shifts to a local mode (1 kbp around peak).
 
 Example: :: 
 
