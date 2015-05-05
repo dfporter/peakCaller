@@ -1,7 +1,7 @@
-YACPC: Yet another CLIP-seq peak caller
+Yet another CLIP-seq peak caller
 =========
 
-This peak caller was specifically written to handle low quality datasets.
+Calls peaks in CLIP-seq data and estimates significance.
 
 Works on .bam files as input.
 
