@@ -1,14 +1,11 @@
 Yet another CLIP-seq peak caller
 =========
 
-Calls peaks in CLIP-seq data and estimates significance.
+Calls peaks in CLIP-seq data and estimates significance. This program was used to call peaks in Puf2p CLIP-seq datasets.
 
 Works on .bam files as input.
 
 Requires one library file - a .gtf of the genome.
-
-This code is now deprecated.
-A new version has been written from scratch, which fixes some of the problems in this version (poor code organization, little useful documentation, poorly written sections of code, inability to call multiple peaks in long sequences of high coverage, few options for different analysis, ect.), and will form its own repository.
 
 Will do a local Poisson on the CLIP data for the assigned gene.
 That is, the signal across the assigned gene is modeled by Poisson.
