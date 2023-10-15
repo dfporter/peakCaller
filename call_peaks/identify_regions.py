@@ -8,8 +8,8 @@ def identify_regions(globstr, src_dir, cutoff=1):
 	Outputs .regions files. Returns nothing.
 	src_dir is the directory with the required perl script.
 	"""
-	print "Identifying regions above %i coverage in %s..." % (
-                cutoff, globstr)
+	print("Identifying regions above %i coverage in %s..." % (
+                cutoff, globstr))
 	perl_script_path = src_dir + '/extractAllRegionsAboveCutoff.pl'
 	for filename in glob.glob(globstr):
 		bash_cmd = """f=%s

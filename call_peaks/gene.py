@@ -6,7 +6,7 @@ from scipy.stats import poisson
 import pysam
 import re
 import subprocess
-import gtf_data
+from . import gtf_data
 
 class gene:
     
@@ -60,16 +60,16 @@ class gene:
                 try:
                     bedgraph_obj[iv] += self.bins[index-adjust_index_for_introns]
                 except:
-                    print "Error in gene.add_bins_to_bedgraph:"
-                    print "index %i not in self.bins %s" % (index-adjust_index_for_introns, str(self.bins))
-                    print "bins in introns %s" % str(self.bins_in_introns)
+                    print("Error in gene.add_bins_to_bedgraph:")
+                    print("index %i not in self.bins %s" % (index-adjust_index_for_introns, str(self.bins)))
+                    print("bins in introns %s" % str(self.bins_in_introns))
             if which_set == "background":
                 try:
                     bedgraph_obj[iv] += self.background_bins[index-adjust_index_for_introns]
                 except:
-                    print "Error in gene.add_bins_to_bedgraph:"
-                    print "index %i not in self.bins %s" % (index-adjust_index_for_introns, str(self.background_bins))
-                    print "bins in introns %s" % str(self.bins_in_introns) 
+                    print("Error in gene.add_bins_to_bedgraph:")
+                    print("index %i not in self.bins %s" % (index-adjust_index_for_introns, str(self.background_bins)))
+                    print("bins in introns %s" % str(self.bins_in_introns)) 
 
     def add_clip_reads_in_gene(self, clipReadsFname):
         """Adds all reads in the genomic interval and bins.

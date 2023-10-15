@@ -1,10 +1,10 @@
 from setuptools import setup, find_packages
 
 PACKAGE = 'peaksCaller'
-desc_lines = open('README', 'r').readlines()
+desc_lines = open('README.rst', 'r').readlines()
 
-setup(name="dfporter.%s" % PACKAGE,
-	version = "0.0.6",
+setup(name=PACKAGE, #"dfp%s" % PACKAGE,
+	version = "0.0.7",
 	author = "Douglas Porter",
 	author_email = "dfporter@wisc.edu",
 	description = ("Experimental CLIP-seq peak caller program."),
@@ -19,7 +19,7 @@ setup(name="dfporter.%s" % PACKAGE,
 			'call_peaks':['extractAllRegionsAboveCutoff.pl']},
 	classifiers=['Development Status :: 2 - Pre-Alpha',
 	'License :: OSI Approved :: MIT License',
- 	'Programming Language :: Python :: 2.7',
+ 	'Programming Language :: Python :: 3.0',
 	],
 	keywords='clip_seq HITS',
 )

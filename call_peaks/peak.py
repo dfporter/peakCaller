@@ -6,7 +6,7 @@ from scipy.stats import poisson
 import pysam
 import re
 import subprocess
-from gene import gene
+from .gene import gene
 
 class peak:
     """A CLIP-seq peak.
@@ -140,7 +140,7 @@ class peak:
 
     def add_bins_to_bedgraph(self, bedgraph_obj):
         if not hasattr(self, 'leftmost_bin_index'):
-            print "Error: Asked to report bins, but no bins are set for %s." % self.name
+            print("Error: Asked to report bins, but no bins are set for %s." % self.name)
         for i in range(self.leftmost_bin_index, self.rightmost_bin_index + 1, 1):
             _bin = self.clip_bins[i]
             iv = HTSeq.GenomicInterval(*_bin['iv'])
@@ -299,7 +299,7 @@ class peak:
             self.clip_bins.append({'iv': iv, 'signal': value_in_bin})
         if(len(self.clip_bins) < 1):
             self.clip_bins = [{'iv': self.iv, 'signal': 0.0}]
-            print "No clip bins for peak %s?" % self.name
+            print("No clip bins for peak %s?" % self.name)
             
     def total_reads_in_bin(self, ga_obj, chrm, start, end, strand):
         """Sum all reads in a given bin.
@@ -321,7 +321,7 @@ class peak:
             self.background_bins.append({'iv': iv, 'signal': value_in_bin})
         if(len(self.background_bins) < 1):
             self.background_bins = [{'iv': self.iv, 'signal': 0}]
-            print "No background bins for peak %s?" % self.name
+            print("No background bins for peak %s?" % self.name)
         return self.background_bins
     
     def process_bins(self, bin_list):
@@ -402,7 +402,7 @@ class peak:
         if self.leftmost_bin_index == self.rightmost_bin_index:
             if (self.leftmost_bin_index + 1) > (len(self.clip_bins) - 1):
                 self.rightmost_bin_index = self.leftmost_bin_index
-                print "Error: only one bin? Peak %i. Bins %s." % (self.name, str(self.clip_bins))
+                print("Error: only one bin? Peak %i. Bins %s." % (self.name, str(self.clip_bins)))
             else:
                 self.rightmost_bin_index = self.leftmost_bin_index + 1
         values_in_bins = [_bin['signal'] for _bin in self.clip_bins]

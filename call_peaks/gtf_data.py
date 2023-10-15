@@ -19,7 +19,7 @@ class gtf_data:
                 s = li.rstrip('\n').split('\t')
                 m = re.search("transcript_id ([^;]+);", li)
                 if m is None:
-                    print "Error on line %s" % li
+                    print("Error on line %s" % li)
                     continue
                 txpt_id = re.sub(r'''"''', '', m.group(1))
                 if s[2] == "exon":

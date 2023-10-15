@@ -19,7 +19,7 @@ def create_bed_from_gtf(gtf_filename, bed_filename):
             s = li.rstrip('\n').split('\t')
             m = re.search("transcript_id ([^;]+);", li)
             if m is None:
-                print "Error on line %s" % li
+                print("Error on line %s" % li)
             txpt_id = re.sub('''"''', '', m.group(1))
             iv = (s[0], int(s[3]), int(s[4]), s[6])
             if s[2] == 'CDS':
@@ -40,7 +40,7 @@ def create_bed_from_gtf(gtf_filename, bed_filename):
                              genes[txpt]['CDS'][0][3])
                 genes[txpt]['max_cds'] = max_range
             except:
-                print "error with %s" % str(genes[txpt])
+                print("error with %s" % str(genes[txpt]))
         if 'exon' in genes[txpt]:
             starts = [x[1] for x in genes[txpt]['exon']]
             ends = [x[2] for x in genes[txpt]['exon']]
@@ -51,12 +51,12 @@ def create_bed_from_gtf(gtf_filename, bed_filename):
             if genes[txpt]['max_cds'] != genes[txpt]['max_exon'] and (
                 (genes[txpt]['max_cds'][2] - genes[txpt]['max_cds'][1] + 3) != (
                     genes[txpt]['max_exon'][2] - genes[txpt]['max_exon'][1])):
-                print "Error: CDS and exon lengths don't match for %s" % txpt
-                print genes[txpt]
+                print("Error: CDS and exon lengths don't match for %s" % txpt)
+                print(genes[txpt])
     with open(bed_filename, 'w') as f:
         for txpt in genes:
             if 'max_exon' not in genes[txpt]:
-                print "Missing exon lengths for %s" % txpt
+                print("Missing exon lengths for %s" % txpt)
                 continue
             iv = genes[txpt]['max_exon']
             f.write("{chrm}\t{start}\t{end}\t{name}\t1\t{strand}\n".format(

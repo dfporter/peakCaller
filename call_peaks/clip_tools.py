@@ -1,4 +1,4 @@
-from __future__ import division  # int/int = float
+  # int/int = float
 import sys
 import os
 import pybedtools
@@ -12,9 +12,9 @@ import subprocess
 import math
 import random
 import argparse
-from peak import peak
-from gene import gene
-from gtf_data import gtf_data
+from .peak import peak
+from .gene import gene
+from .gtf_data import gtf_data
 
 
 def normalize(clipReadsFname, background_bam_filename):
@@ -32,7 +32,7 @@ def normalize(clipReadsFname, background_bam_filename):
     parseout = stp.search(str(stats.communicate()))
     if parseout:
         backgroundTotal = int(parseout.group(1)) + int(parseout.group(2))
-    	print "clip reads:%i rna seq reads:%i" % (clipTotal, backgroundTotal)
+        print("clip reads:%i rna seq reads:%i" % (clipTotal, backgroundTotal))
     return float(clipTotal)/float(backgroundTotal)
     #clip peak/clip total cf background peak/background total
     #is the same as
@@ -48,7 +48,7 @@ def dataset_size(clipReadsFname):
         clipTotal = int(parseout.group(1)) + int(parseout.group(2))
         return clipTotal
     else:
-        print "Error: expected output missing."
+        print("Error: expected output missing.")
 
 
 def guess_bam_file(peaksFname, silent=False):
@@ -56,10 +56,10 @@ def guess_bam_file(peaksFname, silent=False):
     foldername = os.path.dirname(peaksFname).rstrip('/')
     #foldername = re.match(r'.+/([^/]+)$', t).group(1)
     if(not silent):
-        print "\tGuessing bam file for foldername %s..." % t
+        print("\tGuessing bam file for foldername %s..." % t)
     bamfile = r'/home/dp/Desktop/bams/' + foldername + '.bam'
     if not silent:
-        print "\t...Guessing bam file is %s." % bamfile
+        print("\t...Guessing bam file is %s." % bamfile)
     return bamfile
 
 
@@ -82,17 +82,17 @@ def remove_duplicate_ranges(bedfilename, outfilename):
 def merge_peaks(bedfile, results_folder):
     cmdl = "sort -k1,1 -k2,2n %s/%s > %s/%s.formerge" % (
         results_folder, bedfile, results_folder, bedfile)
-    print cmdl
+    print(cmdl)
     os.system(cmdl)
     # The output of bedtools merge will contain the highest peak height in column 5
     # of the merged peaks, the the peak numbers in column 4 separated by ;.
     # Use -d 5 option to merge peaks within 5 nucleotides
     cmdl = "bedtools merge -s -scores max -nms -i %s/%s.formerge > %s/%s.merged.bed" % (
                 results_folder, bedfile, results_folder, bedfile)
-    print cmdl
+    print(cmdl)
     os.system(cmdl)
     cmdl = "rm %s/%s.formerge" % (results_folder, bedfile)
-    print cmdl
+    print(cmdl)
     #os.system(cmdl)
 
     
@@ -139,7 +139,7 @@ def call_R(results_folder, peaks, src_path, which='background'):
             if which=='clip':
                 p.clip_nb_p_value = peak_stats_by_name[p.name]
         except:
-            print "keys are %s" % str(peak_stats_by_name.keys())
+            print("keys are %s" % str(list(peak_stats_by_name.keys())))
       
     
 def ranges_with_stats_to_peaks(results_folder, binned_genes, peaks, annotation_file=''):
@@ -151,9 +151,9 @@ def ranges_with_stats_to_peaks(results_folder, binned_genes, peaks, annotation_f
     peaks = sorted(peaks, key=lambda x: float(x.height), reverse=True)
     for p in peaks:
         if not hasattr(p, 'background_nb_p_value'):
-            print "Peak %s has no back p value." % p.gene_name
+            print("Peak %s has no back p value." % p.gene_name)
         if not hasattr(p, 'clip_nb_p_value'):
-            print "Peak %s has no clip p value." % p.gene_name    
+            print("Peak %s has no clip p value." % p.gene_name)    
     with open(filename, 'w') as f:
         f.write(header)
         for p in peaks:
@@ -171,7 +171,7 @@ def ranges_with_stats_to_peaks(results_folder, binned_genes, peaks, annotation_f
     
 def assign_to_gene(in_file, out_file, annotation_file=''):
     bed_format_filename = os.path.dirname(os.path.realpath(in_file)) + '/ranges_no_dups.bed'
-    print bed_format_filename
+    print(bed_format_filename)
     bed_format = open(bed_format_filename, 'w')
     lines_from_ranges_no_dups = {}
     with open(in_file, "r") as f:
@@ -284,7 +284,7 @@ def process_ranges(peaks_ranges_filename, clip_bam_filename, background_bam_file
     (peaks, peak_heights) = take_only_highest_peak_per_gene(peaks, peak_heights)
     for index, p in enumerate(peaks, start=1):
         if not (index % 100):
-            print "Processing range %i." % index
+            print("Processing range %i." % index)
         p.add_reads_and_adjust_range(clip_bam_filename)
         if p.gene_name in gtf_info.txpt_ranges:
             if p.gene_name in binned_genes and (p.gene_name not in use_local_for_these_genes):
@@ -307,9 +307,9 @@ def process_ranges(peaks_ranges_filename, clip_bam_filename, background_bam_file
                     p.put_clip_reads_in_bins(use_bins_from_gene=False)
                     p.calculate_poisson(a_binned_gene=False)
         else:
-            print "Unknown gene %s..." % p.gene_name
+            print("Unknown gene %s..." % p.gene_name)
             p.put_clip_reads_in_bins(use_bins_from_gene=False)
-            print p.calculate_poisson()
+            print(p.calculate_poisson())
         #peakStats[p.name] = {'Poisson': p.pvalue}
         if(background_bam_filename):
             if p.gene_name in gtf_info.txpt_ranges and (p.gene_name not in use_local_for_these_genes):
@@ -365,8 +365,8 @@ def take_only_highest_peak_per_gene(peaks, peak_heights):
         if p.name == peaks_by_gene[p.gene_name].name:
             new_peaks_list.append(p)
             new_peak_heights[p.name] = p.height
-    print "Total peaks: %i" % len(peaks)
-    print "Taking only the highest per gene: %i" % len(new_peaks_list)
+    print("Total peaks: %i" % len(peaks))
+    print("Taking only the highest per gene: %i" % len(new_peaks_list))
     return (new_peaks_list, new_peak_heights)
 
 
