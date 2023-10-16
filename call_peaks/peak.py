@@ -6,7 +6,7 @@ from scipy.stats import poisson
 import pysam
 import re
 import subprocess
-from .gene import gene
+from gene import gene
 
 class peak:
     """A CLIP-seq peak.

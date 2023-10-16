@@ -14,11 +14,11 @@ import time
 import re
 import subprocess
 import argparse
-from .peak import peak
-from . import clip_tools
-from . import identify_regions
+import peak
+import clip_tools
+import identify_regions
 import pysam
-from . import annotation_bed_from_gtf
+import annotation_bed_from_gtf
 
 def parse_args():
     src_dir = os.path.dirname(os.path.realpath(__file__))
@@ -49,20 +49,28 @@ value with the ZTNB p value being merely a measure of relative enrichment.""")
     return args
 
 if __name__ == '__main__':
+    
     src_dir = os.path.dirname(os.path.realpath(__file__))
     args = parse_args()
+    
     # Variable initilization.
     if not args.annotation_bed or (not os.path.exists(args.annotation_bed)):
         annotation_bed_from_gtf.create_bed_from_gtf(args.gtf, src_dir + "/lib/tmp_genes.bed")
         args.annotation_bed = src_dir + "/lib/tmp_genes.bed"
+        os.system(
+            f"bedtools sort -i {args.annotation_bed} > {args.annotation_bed}.tmp " + \
+            f"&& mv {args.annotation_bed}.tmp {args.annotation_bed}")
     clip_bam_filename = args.clip_reads
     regions_above_cutoff_filename = args.peaks
+    
     if regions_above_cutoff_filename == "create":
         identify_regions.identify_regions(clip_bam_filename, src_dir)
         regions_above_cutoff_filename = "%s.regions" % clip_bam_filename
+        
     control_bam_filename = args.background_reads
     normalization_coefficient = 1.0
     peakHeights = dict()
+    
     # Set the normalization coefficient by dividing total read number
     # of CLIP reads by total read number of RNA-seq. Uses only mapped reads.
     if(args.background_reads):
@@ -71,38 +79,46 @@ if __name__ == '__main__':
         normalization_coefficient = args.gain * normalization_coefficient
         sys.stderr.write("Normalization coefficient is %.4f (Gain: %.3f)\n" % (
             normalization_coefficient, float(args.gain)))
+        
     # Count the number of peaks.
     with open(regions_above_cutoff_filename, 'r') as f:
         for num_peaks, line in enumerate(f):
             pass
     num_peaks += 1
+    
     print("\n\nRegions above cutoff in .regions file: %i" % num_peaks)
+    
     # File io initialization.
     peaksBasename = re.match(r'(.+)\.regions',
         os.path.basename(regions_above_cutoff_filename)).group(1)
     peaksBasename = re.sub(r'.bam', '', peaksBasename)
     results_folder = args.output_folder + '/' + peaksBasename + '/'
-    if(not os.path.exists(results_folder)):
-        print("Creating output folder %s..." % results_folder)
-        os.system("mkdir %s" % results_folder)    
+    os.makedirs(results_folder, exist_ok=True)
     peaks_ranges_filename = results_folder + 'init_ranges' 
+    
     # Start the clock.
     startTime = time.time()
+    
     # This is the first main loop of the program:
     # For each peak, get the reads mapping in the general region from
     # peaks .bam and RNA-seq .bam and output to init_ranges.
-    clip_tools.define_ranges(regions_above_cutoff_filename,
-                             clip_bam_filename,
-                             normalization_coefficient,
-                             peaks_ranges_filename,
-                             peakHeights, startTime, num_peaks)
+#     clip_tools.define_ranges(regions_above_cutoff_filename,
+#                              clip_bam_filename,
+#                              normalization_coefficient,
+#                              peaks_ranges_filename,
+#                              peakHeights, startTime, num_peaks)
+    
+    print(f"Removing duplicate ranges.")
     clip_tools.remove_duplicate_ranges(
         results_folder + 'init_ranges',
         results_folder + '/ranges_no_dups')
+    
+    print(f"Assigning to genes.")
     clip_tools.assign_to_gene(
         results_folder + '/ranges_no_dups',
         results_folder + '/ranges_with_ann',
         annotation_file=args.annotation_bed)
+    
     print("Processing ranges in %s..." % peaks_ranges_filename)
     # binned_genes is returned to correct significances for gene length.
     (peaks, binned_genes) = clip_tools.process_ranges(
@@ -113,6 +129,7 @@ if __name__ == '__main__':
         gtf_filename=args.gtf,
         annotation_file=args.annotation_bed)
     print("Finished processing ranges. Calling R...")
+    
     # Call R and reformat the results, which are put in a file r.out.
     # callR() returns a dict with key = peak number, value = pvalue.
     clip_tools.call_R(results_folder, peaks, src_dir, which='background')
@@ -122,8 +139,10 @@ if __name__ == '__main__':
     #                       peak_stats)
     #os.system("mv %s/ranges_with_stats %s/ranges" % (results_folder,
     #                                                   results_folder))
+    
     print("Converting ranges with stats to a .peaks file...")
     clip_tools.ranges_with_stats_to_peaks(
         results_folder, binned_genes, peaks,
         annotation_file=args.annotation_bed)
+    
     print("Finished with file %s." % clip_bam_filename)

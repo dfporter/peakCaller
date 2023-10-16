@@ -6,7 +6,7 @@ from scipy.stats import poisson
 import pysam
 import re
 import subprocess
-from . import gtf_data
+import gtf_data
 
 class gene:
     

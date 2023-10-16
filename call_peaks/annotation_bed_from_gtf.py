@@ -19,13 +19,14 @@ def create_bed_from_gtf(gtf_filename, bed_filename):
             s = li.rstrip('\n').split('\t')
             m = re.search("transcript_id ([^;]+);", li)
             if m is None:
-                print("Error on line %s" % li)
+                #print("Error on line %s" % li)
+                continue
             txpt_id = re.sub('''"''', '', m.group(1))
             iv = (s[0], int(s[3]), int(s[4]), s[6])
-            if s[2] == 'CDS':
-                genes.setdefault(txpt_id, {})
-                genes[txpt_id].setdefault('CDS', [])
-                genes[txpt_id]['CDS'].append(iv)
+#             if s[2] == 'CDS':
+#                 genes.setdefault(txpt_id, {})
+#                 genes[txpt_id].setdefault('CDS', [])
+#                 genes[txpt_id]['CDS'].append(iv)
             if s[2] == "exon":
                 genes.setdefault(txpt_id, {})
                 genes[txpt_id].setdefault('exon', [])
@@ -53,6 +54,8 @@ def create_bed_from_gtf(gtf_filename, bed_filename):
                     genes[txpt]['max_exon'][2] - genes[txpt]['max_exon'][1])):
                 print("Error: CDS and exon lengths don't match for %s" % txpt)
                 print(genes[txpt])
+                
+    print(f"Writing bed version of gtf to {bed_filename}.")
     with open(bed_filename, 'w') as f:
         for txpt in genes:
             if 'max_exon' not in genes[txpt]:

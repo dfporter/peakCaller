@@ -12,9 +12,9 @@ import subprocess
 import math
 import random
 import argparse
-from .peak import peak
-from .gene import gene
-from .gtf_data import gtf_data
+from peak import peak
+from gene import gene
+from gtf_data import gtf_data
 
 
 def normalize(clipReadsFname, background_bam_filename):
@@ -182,6 +182,9 @@ def assign_to_gene(in_file, out_file, annotation_file=''):
                 chrm=s[1], start=s[2], end=s[3], name=s[4], value=s[5], strand=s[6]) 
             bed_format.write(bed_li + "\n")            
     bed_format.close()
+    os.system(
+        f"bedtools sort -i {bed_format_filename} > {bed_format_filename}.tmp " + \
+        f"&& mv {bed_format_filename}.tmp {bed_format_filename}")
     cmdl = "closestBed -s -a %s -b %s > %s_raw" % (
             bed_format_filename, annotation_file, out_file)
     
